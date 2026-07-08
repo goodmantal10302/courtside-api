@@ -1,10 +1,43 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { broadcast } = require('../ws');
+
+// GET /v1/sessions/mine?device_id=... — does this device already have an active session anywhere?
+router.get('/mine', async (req, res) => {
+  const { device_id } = req.query;
+
+  if (!device_id) {
+    return res.status(400).json({ error: 'device_id is required' });
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT s.*, l.name AS location_name, c.label AS court_label
+       FROM sessions s
+       JOIN locations l ON l.id = s.location_id
+       JOIN courts c ON c.id = s.court_id
+       WHERE s.device_id = $1 AND s.status = 'active'
+       ORDER BY s.started_at DESC
+       LIMIT 1`,
+      [device_id]
+    );
+
+    if (!result.rows.length) {
+      return res.json({ session: null });
+    }
+
+    res.json({ session: result.rows[0] });
+
+  } catch (err) {
+    console.error('GET /v1/sessions/mine error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // POST /v1/sessions — start playing on a court
 router.post('/', async (req, res) => {
-  const { court_id, location_id, duration_mins, player_name, partners } = req.body;
+  const { court_id, location_id, duration_mins, player_name, partners, device_id } = req.body;
 
   // Validate duration — only 30, 60, or 90 accepted
   if (![30, 60, 90].includes(duration_mins)) {
@@ -21,23 +54,7 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    // Check court is actually available right now
-    const courtResult = await db.query(
-      `SELECT * FROM courts WHERE id = $1`,
-      [court_id]
-    );
-
-    if (!courtResult.rows.length) {
-      return res.status(404).json({ error: 'Court not found' });
-    }
-
-    const court = courtResult.rows[0];
-
-    if (court.status === 'closed') {
-      return res.status(409).json({ error: 'This court is closed for maintenance' });
-    }
-
-    // Check no active session already exists for this court
+   // Check no active session already exists for this court
     const activeSession = await db.query(
       `SELECT id FROM sessions WHERE court_id = $1 AND status = 'active'`,
       [court_id]
@@ -47,16 +64,36 @@ router.post('/', async (req, res) => {
       return res.status(409).json({ error: 'This court already has an active session' });
     }
 
+    // Check this same device isn't already playing somewhere else —
+    // a player can only be on one court at a time
+    const myActiveSession = await db.query(
+      `SELECT s.id, l.name AS location_name, c.label AS court_label
+       FROM sessions s
+       JOIN locations l ON l.id = s.location_id
+       JOIN courts c ON c.id = s.court_id
+       WHERE s.device_id = $1 AND s.status = 'active'`,
+      [device_id]
+    );
+
+    if (myActiveSession.rows.length > 0) {
+      const existing = myActiveSession.rows[0];
+      return res.status(409).json({
+        error: 'already_playing',
+        message: `You're already playing on ${existing.court_label} at ${existing.location_name}. End that session before starting another.`,
+        session_id: existing.id
+      });
+    }
+
     // Calculate end time
     const endsAt = new Date(Date.now() + duration_mins * 60 * 1000);
 
     // Create the session
     const sessionResult = await db.query(
       `INSERT INTO sessions
-        (court_id, location_id, player_name, partners_json, duration_mins, ends_at, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'active')
+        (court_id, location_id, device_id, player_name, partners_json, duration_mins, ends_at, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
        RETURNING *`,
-      [court_id, location_id, player_name, JSON.stringify(partners), duration_mins, endsAt]
+      [court_id, location_id, device_id, player_name, JSON.stringify(partners), duration_mins, endsAt]
     );
 
     const session = sessionResult.rows[0];
@@ -66,6 +103,20 @@ router.post('/', async (req, res) => {
       `UPDATE courts SET status = 'in_use' WHERE id = $1`,
       [court_id]
     );
+
+    // Let every connected browser know this court just went in-use,
+    // so other phones looking at the same map/QR page update live.
+    broadcast('court_update', {
+      location_id: session.location_id,
+      court_id: session.court_id,
+      status: 'in_use',
+      session: {
+        id: session.id,
+        players: [session.player_name, ...(session.partners_json || [])],
+        duration_mins: session.duration_mins,
+        ends_at: session.ends_at
+      }
+    });
 
     res.status(201).json({
       session_id: session.id,
@@ -114,6 +165,14 @@ router.delete('/:id', async (req, res) => {
       `UPDATE courts SET status = 'available' WHERE id = $1`,
       [session.court_id]
     );
+
+    // Tell everyone else this court is free now
+    broadcast('court_update', {
+      location_id: session.location_id,
+      court_id: session.court_id,
+      status: 'available',
+      session: null
+    });
 
     // Check if anyone is in the queue for this location
     const queueResult = await db.query(
@@ -195,6 +254,19 @@ router.post('/:id/extend', async (req, res) => {
        WHERE id = $2`,
       [newEndsAt, id]
     );
+
+    // Let everyone see the new countdown, not just this browser
+    broadcast('court_update', {
+      location_id: session.location_id,
+      court_id: session.court_id,
+      status: 'in_use',
+      session: {
+        id: session.id,
+        players: [session.player_name, ...(session.partners_json || [])],
+        duration_mins: session.duration_mins,
+        ends_at: newEndsAt
+      }
+    });
 
     res.json({
       message: 'Session extended by 30 minutes',
