@@ -2,6 +2,33 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+// GET /v1/locations/cities — every city that currently has at least one
+// active location, anywhere in the system. Deliberately NOT filtered by
+// distance from anything — this is what powers city search and the
+// header's current-city label, both of which need to know about a city
+// like "Irvine" even when the browser's current radius fetch is centered
+// somewhere else entirely (e.g. Ontario) and wouldn't otherwise include it.
+router.get('/cities', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT city AS name, AVG(lat) AS lat, AVG(lng) AS lng, COUNT(*) AS count
+      FROM locations
+      WHERE active = true
+      GROUP BY city
+      ORDER BY city ASC
+    `);
+    res.json(result.rows.map(r => ({
+      name: r.name,
+      lat: parseFloat(r.lat),
+      lng: parseFloat(r.lng),
+      count: parseInt(r.count, 10)
+    })));
+  } catch (err) {
+    console.error('GET /v1/locations/cities error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const { lat, lng, radius_miles = 10, sport, city } = req.query;
