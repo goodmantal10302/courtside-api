@@ -387,8 +387,6 @@
           <input id="city-search-input" class="field" type="text" placeholder="Search a city…" style="margin-bottom:0;font-size:12.5px;padding:8px 10px;" oninput="filterCitySuggestions(this.value)" onkeydown="if(event.key==='Enter') trySelectTypedCity()">
           <div id="city-suggestions"></div>
         </div>
-        <div class="vd-divider"></div>
-        <button class="vd-item" onclick="toggleAdmin();toggleViewMenu()">🛠 Admin</button>
       </div>
     </div>
 
@@ -1900,8 +1898,13 @@ function tick(){
           court.session.expired = true;
           changed = true;
         } else {
-          const el = document.getElementById(`timer-${loc.id}-${court.id}`);
-          if (el) el.textContent = fmtClock(remaining);
+          // Use querySelectorAll, not getElementById — the same timer id
+          // can legitimately exist more than once at the same time (main
+          // panel, card view, QR landing can all render one for the same
+          // court), and getElementById only ever finds the first match,
+          // which might not be the one currently visible on screen.
+          const els = document.querySelectorAll(`[id="timer-${loc.id}-${court.id}"]`);
+          els.forEach(el => el.textContent = fmtClock(remaining));
         }
       }
     });
