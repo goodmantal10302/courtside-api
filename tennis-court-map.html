@@ -1,0 +1,2198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CourtSide — Live Tennis Court Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --court:#1F6E63;
+    --court-dark:#15504A;
+    --school:#2F6FD8;
+    --private:#D98C2B;
+    --indoor:#7A4FB5;
+    --closed:#8A9089;
+    --chalk:#F6F3EA;
+    --ink:#1B2421;
+    --ink-soft:#5B6660;
+    --line:#E2DDD0;
+    --available:#2E8B57;
+    --inuse:#C0552F;
+    --queue:#B8860B;
+    --card-shadow: 0 12px 32px -8px rgba(27,36,33,0.25), 0 2px 8px rgba(27,36,33,0.08);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--chalk);font-family:'Inter',sans-serif;color:var(--ink);}
+  #app{position:relative;width:100%;height:100vh;overflow:hidden;}
+  #map{position:absolute;inset:0;}
+  .leaflet-container{background:#E9E4D6;font-family:'Inter',sans-serif;}
+
+  /* ---------- Top bar ---------- */
+  #topbar{
+    position:absolute;top:16px;left:16px;right:16px;z-index:1000;
+    display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;
+    pointer-events:none;
+  }
+  .glass{
+    background:rgba(246,243,234,0.92);
+    backdrop-filter:blur(8px);
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:var(--card-shadow);
+    pointer-events:auto;
+  }
+  #brand{display:flex;align-items:center;gap:10px;padding:12px 16px;flex:0 0 auto;}
+  #brand .mark{
+    width:34px;height:34px;border-radius:9px;
+    background:linear-gradient(160deg,var(--court),var(--court-dark));
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Grotesk',sans-serif;color:var(--chalk);font-weight:700;font-size:15px;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,0.18);
+  }
+  #brand .name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;letter-spacing:-0.01em;}
+  #brand .tag{font-size:11px;color:var(--ink-soft);margin-top:-2px;font-family:'JetBrains Mono',monospace;}
+
+  #sport-bar{display:flex;gap:8px;padding:10px 14px;align-items:center;flex:0 0 auto;}
+  .sport-btn{border:1px solid var(--line);background:#fff;color:var(--ink-soft);padding:8px 13px;border-radius:11px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:600;font-family:'Inter',sans-serif;opacity:.55;transition:opacity .15s, background .15s, color .15s;white-space:nowrap;}
+  .sport-btn.active{background:var(--court);border-color:var(--court);color:#fff;opacity:1;}
+  #sport-pickleball-btn.active{background:#4FA3C7;border-color:#4FA3C7;}
+  .sport-btn .sport-count{font-family:'JetBrains Mono',monospace;font-size:11px;}
+
+  #legend{display:flex;gap:12px;padding:12px 14px;align-items:center;flex:0 0 auto;}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-soft);font-weight:500;white-space:nowrap;}
+  .legend-dot{width:10px;height:10px;border-radius:50%;flex:none;}
+
+  /* ---------- Radius control ---------- */
+  #radius-bar{display:flex;align-items:center;gap:10px;padding:11px 16px;flex:0 0 auto;}
+  #radius-bar .r-label{font-size:11px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+  #radius-bar input[type="range"]{
+    width:110px;height:4px;-webkit-appearance:none;appearance:none;
+    background:linear-gradient(to right, var(--court) 0%, var(--court) var(--fill,30%), var(--line) var(--fill,30%), var(--line) 100%);
+    border-radius:4px;outline:none;cursor:pointer;
+  }
+  #radius-bar input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+    background:#fff;border:3px solid var(--court);cursor:pointer;
+    box-shadow:0 2px 6px rgba(27,36,33,0.3);
+  }
+  #radius-bar input[type="range"]::-moz-range-thumb{
+    width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid var(--court);cursor:pointer;
+  }
+  #radius-value{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:12px;color:var(--court-dark);min-width:46px;}
+  #locate-btn{
+    border:none;background:var(--line);color:var(--ink-soft);
+    width:28px;height:28px;border-radius:50%;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+    flex:none;transition:background .15s;
+  }
+  #locate-btn:hover{background:#d8d2c0;}
+  #locate-btn.active{background:var(--court);color:#fff;}
+
+  /* ---------- Admin bar ---------- */
+  #admin-bar{display:flex;gap:8px;padding:10px 14px;align-items:center;flex:0 0 auto;}
+  #admin-btn{border:none;background:var(--line);color:var(--ink-soft);padding:8px 12px;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;display:none;}
+  #admin-btn.active{background:var(--indoor);color:#fff;}
+  #add-location-btn{border:none;background:var(--court);color:#fff;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;display:none;white-space:nowrap;}
+
+  /* ---------- You-are-here marker ---------- */
+  .you-marker{position:relative;width:18px;height:18px;}
+  .you-marker .core{
+    position:absolute;inset:3px;border-radius:50%;background:#2B7FE0;border:2px solid #fff;
+    box-shadow:0 0 0 2px rgba(43,127,224,0.25);
+  }
+  .you-marker .pulse{
+    position:absolute;inset:-8px;border-radius:50%;background:rgba(43,127,224,0.25);
+    animation:you-pulse 2.2s ease-out infinite;
+  }
+  @keyframes you-pulse{0%{transform:scale(0.4);opacity:.9;}100%{transform:scale(1.6);opacity:0;}}
+
+  /* ---------- Map pins ---------- */
+  .court-pin{cursor:pointer;transition:transform .15s ease;transform-origin:50% 100%;}
+  .court-pin-selected-ring{position:relative;width:50px;height:62px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;}
+  .court-pin-selected-ring::before{
+    content:'';position:absolute;left:50%;bottom:6px;width:48px;height:48px;
+    transform:translateX(-50%);border-radius:14px;
+    border:3px solid #2B7FE0;box-shadow:0 0 0 4px rgba(43,127,224,0.18);
+    animation:selected-ring-pulse 1.6s ease-out infinite;
+  }
+  @keyframes selected-ring-pulse{
+    0%{box-shadow:0 0 0 4px rgba(43,127,224,0.18);}
+    70%{box-shadow:0 0 0 9px rgba(43,127,224,0);}
+    100%{box-shadow:0 0 0 4px rgba(43,127,224,0);}
+  }
+  .court-pin-selected-ring .court-pin{transform:scale(1.04);}
+  .court-pin:hover{transform:scale(1.08);}
+  .leaflet-popup, .leaflet-popup-tip{display:none !important;}
+
+  /* ---------- Detail panel ---------- */
+  #panel{
+    position:absolute;top:96px;right:16px;bottom:16px;width:360px;
+    z-index:1000;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;
+    transform:translateX(400px);opacity:0;
+    transition:transform .32s cubic-bezier(.2,.8,.2,1), opacity .25s ease;
+  }
+  #panel.open{transform:translateX(0);opacity:1;}
+  #panel-scroll{overflow-y:auto;flex:1;}
+  #panel-head{padding:18px 20px 12px;border-bottom:1px solid var(--line);position:relative;}
+  #panel-head .type-pill{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    padding:3px 9px;border-radius:20px;margin-bottom:8px;
+  }
+  .type-pill.public{background:rgba(31,110,99,0.12);color:var(--court-dark);}
+  .type-pill.school{background:rgba(47,111,216,0.12);color:var(--school);}
+  .type-pill.private{background:rgba(217,140,43,0.16);color:#9c6018;}
+  .type-pill.indoor{background:rgba(122,79,181,0.14);color:var(--indoor);}
+  #panel-head h2{font-family:'Space Grotesk',sans-serif;font-size:18px;margin:0 0 6px;letter-spacing:-0.01em;display:inline;}
+  #panel-head .addr{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+  #panel-close{
+    position:absolute;top:14px;right:14px;width:26px;height:26px;border-radius:50%;
+    border:none;background:var(--line);color:var(--ink-soft);font-size:14px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;z-index:5;
+  }
+  #panel-close:hover{background:#d8d2c0;}
+  .edit-pencil{border:none;background:none;color:var(--court-dark);font-size:11.5px;font-weight:600;cursor:pointer;margin-left:6px;}
+
+  .rating-row{display:flex;align-items:center;gap:6px;margin:2px 0 4px;}
+  .stars{position:relative;display:inline-block;font-size:14px;letter-spacing:1px;line-height:1;}
+  .stars-bg{color:#DCD6C8;}
+  .stars-fg{position:absolute;top:0;left:0;overflow:hidden;white-space:nowrap;color:#E0A526;}
+  .rating-num{font-weight:700;font-size:12.5px;}
+  .rating-count{font-size:11.5px;color:var(--ink-soft);}
+  .dist-tag{font-size:11px;color:var(--court-dark);font-weight:600;margin-top:2px;}
+
+  .amenities-row{display:flex;flex-wrap:wrap;gap:8px;padding:11px 20px;border-bottom:1px solid var(--line);}
+  .amenity{font-size:11.5px;color:var(--ink-soft);background:#EFEBDE;padding:4px 9px;border-radius:8px;}
+  .amenity.none{background:none;color:var(--ink-soft);font-style:italic;padding:0;}
+
+  .busy-section{padding:12px 20px;border-bottom:1px solid var(--line);}
+  .busy-section svg{display:block;}
+  .busy-section rect{cursor:default;}
+  .busy-caption{font-size:11.5px;color:var(--ink-soft);margin-top:2px;line-height:1.45;}
+  .busy-caption b{color:var(--ink);}
+  .day-tabs{display:flex;gap:4px;margin:8px 0 10px;flex-wrap:wrap;}
+  .day-tab{border:1px solid var(--line);background:#fff;color:var(--ink-soft);font-size:10.5px;font-weight:600;padding:5px 8px;border-radius:7px;cursor:pointer;font-family:'JetBrains Mono',monospace;}
+  .day-tab:hover{background:#EFEBDE;}
+  .day-tab.active{background:var(--court);border-color:var(--court);color:#fff;}
+
+  .closed-banner{padding:9px 20px;font-size:11.5px;color:#9c6018;background:rgba(217,140,43,0.12);border-bottom:1px solid var(--line);}
+
+  #panel-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 20px;border-bottom:1px solid var(--line);}
+  .court-count{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;}
+  .hours-row{font-size:11.5px;color:var(--ink-soft);}
+
+  .court-row{padding:14px 20px;border-bottom:1px solid var(--line);}
+  .court-row-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .court-row-top .ct-name{font-weight:600;font-size:14px;}
+  .status-pill{display:inline-flex;align-items:center;gap:7px;font-size:14.5px;font-weight:700;padding:6px 14px;border-radius:20px;}
+  .status-pill .dot{width:9px;height:9px;border-radius:50%;flex:none;}
+  .status-pill.available{background:rgba(46,139,87,0.13);color:var(--available);}
+  .status-pill.available .dot{background:var(--available);}
+  .status-pill.inuse{background:rgba(192,85,47,0.13);color:var(--inuse);}
+  .status-pill .status-clock-icon{flex:none;display:block;animation:pulse-icon 1.8s infinite;}
+  @keyframes pulse-icon{0%{opacity:1;}50%{opacity:.55;}100%{opacity:1;}}
+  .status-pill.closed{background:rgba(138,144,137,0.16);color:var(--closed);}
+  .status-pill.closed .dot{background:var(--closed);}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(192,85,47,.45);}70%{box-shadow:0 0 0 7px rgba(192,85,47,0);}100%{box-shadow:0 0 0 0 rgba(192,85,47,0);}}
+  .ct-sub{font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;}
+  .players-line{font-size:12px;color:var(--ink-soft);margin-bottom:9px;}
+
+  .queue-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;}
+  .avatar-stack{display:flex;}
+  .avatar{
+    width:22px;height:22px;border-radius:50%;background:var(--court);color:#fff;
+    font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;
+    border:2px solid var(--chalk);margin-left:-6px;font-family:'JetBrains Mono',monospace;
+  }
+  .avatar:first-child{margin-left:0;}
+  .queue-text{font-size:11.5px;color:var(--queue);font-weight:600;}
+
+  .ct-actions{display:flex;gap:8px;}
+  .queue-section{padding:12px 20px;border-bottom:1px solid var(--line);}
+  .btn{flex:1;border:none;border-radius:9px;padding:8px 0;font-size:12.5px;font-weight:600;cursor:pointer;transition:filter .15s;font-family:'Inter',sans-serif;}
+  .btn:hover{filter:brightness(0.94);}
+  .btn.primary{background:var(--court);color:#fff;}
+  .btn.ghost{background:#EFEBDE;color:var(--ink);}
+  .btn.warn{background:var(--queue);color:#fff;}
+  .btn[disabled]{opacity:.5;cursor:default;}
+
+  .start-form{padding-top:2px;}
+  .sf-label{font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin:8px 0 6px;}
+  .sf-optional{text-transform:none;font-weight:400;letter-spacing:0;}
+  .dur-group{display:flex;gap:6px;margin-bottom:2px;}
+  .dur-btn{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 0;font-size:12px;font-weight:600;cursor:pointer;color:var(--ink-soft);}
+  .dur-btn.active{background:var(--court);border-color:var(--court);color:#fff;}
+  .partner-row{display:flex;gap:6px;margin-bottom:6px;}
+  .partner-row input{flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:12.5px;font-family:'Inter',sans-serif;outline:none;}
+  .partner-row input:focus{border-color:var(--court);}
+  .x-btn{border:none;background:var(--line);width:28px;border-radius:8px;cursor:pointer;color:var(--ink-soft);}
+  .add-partner{border:none;background:none;color:var(--court-dark);font-size:12px;font-weight:600;cursor:pointer;padding:0 0 10px;text-align:left;display:block;}
+
+  .field{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13px;margin-bottom:8px;font-family:'Inter',sans-serif;}
+  .check-label{display:block;font-size:12.5px;margin-bottom:4px;}
+
+  .admin-row{display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
+  .qr-btn{border:none;background:#EFEBDE;color:var(--ink-soft);padding:7px 10px;border-radius:8px;font-size:11.5px;font-weight:600;cursor:pointer;flex:1;}
+  .del-btn{border:none;background:rgba(192,85,47,.12);color:var(--inuse);width:34px;border-radius:8px;cursor:pointer;flex:none;}
+  .add-court-row{padding:14px 20px;}
+
+  #hint{position:absolute;left:16px;bottom:16px;z-index:1000;padding:10px 14px;border-radius:12px;font-size:11.5px;color:var(--ink-soft);max-width:310px;}
+  #hint b{color:var(--ink);}
+
+  /* ---------- View dropdown menu ---------- */
+  .view-dropdown{
+    position:absolute;top:calc(100% + 6px);left:0;min-width:200px;
+    background:rgba(246,243,234,0.98);backdrop-filter:blur(12px);
+    border:1px solid var(--line);border-radius:14px;box-shadow:var(--card-shadow);
+    padding:6px;z-index:1100;display:none;flex-direction:column;
+  }
+  .view-dropdown.open{display:flex;}
+  .vd-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);padding:7px 10px 3px;}
+  .vd-item{border:none;background:none;text-align:left;padding:10px 12px;border-radius:9px;font-size:13px;font-weight:500;color:var(--ink);cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:8px;}
+  .vd-item:hover{background:var(--line);}
+  .vd-item.active{background:rgba(31,110,99,0.1);color:var(--court-dark);font-weight:700;}
+  .vd-divider{height:1px;background:var(--line);margin:5px 6px;}
+  #city-suggestions{display:flex;flex-direction:column;gap:1px;margin-top:6px;max-height:160px;overflow-y:auto;}
+  .city-suggestion{border:none;background:none;text-align:left;padding:8px 9px;border-radius:7px;font-size:12.5px;color:var(--ink);cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:6px;width:100%;white-space:nowrap;overflow:hidden;}
+  .city-suggestion:hover{background:var(--line);}
+  .city-suggestion .cs-pin{flex:none;font-size:11px;}
+  .city-suggestion .cs-name{flex:none;font-weight:500;overflow:hidden;text-overflow:ellipsis;}
+  .city-suggestion .cs-region{color:var(--ink-soft);font-size:11px;flex:none;margin-left:auto;padding-left:8px;}
+  .city-suggestion-empty{font-size:11.5px;color:var(--ink-soft);padding:7px 9px;line-height:1.4;}
+
+  /* Inline sort pills shown inside the top bar in card view */
+  .sort-pill{border:1px solid var(--line);background:#fff;color:var(--ink-soft);padding:6px 11px;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;transition:background .15s,color .15s,border-color .15s;}
+  .sort-pill:hover{background:#EFEBDE;}
+  .sort-pill.active{background:var(--court);border-color:var(--court);color:#fff;}
+
+  /* ---------- Card view overlay ---------- */
+  .card-view-overlay{
+    position:absolute;top:0;left:0;right:0;bottom:0;
+    background:var(--chalk);z-index:900;
+    display:none;overflow-y:auto;
+    padding:90px 16px 32px;
+  }
+  .card-view-overlay.open{display:block;}
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;max-width:1100px;margin:0 auto;}
+
+  .loc-card{background:#fff;border:2px solid transparent;border-radius:20px;overflow:hidden;box-shadow:var(--card-shadow);cursor:pointer;transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;}
+  .loc-card.selected{border-color:var(--court);box-shadow:0 0 0 3px rgba(31,110,99,0.15), var(--card-shadow);}
+  .loc-card:hover{transform:translateY(-2px);box-shadow:0 18px 40px -10px rgba(27,36,33,0.22);}
+  .loc-card-head{padding:18px 18px 14px;display:flex;gap:14px;align-items:flex-start;border-bottom:1px solid var(--line);}
+  .loc-card-icon{flex:none;}
+  .loc-card-meta h3{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;margin:0 0 3px;letter-spacing:-0.01em;}
+  .loc-card-meta .card-addr{font-size:11.5px;color:var(--ink-soft);margin-bottom:6px;}
+  .card-pills{display:flex;gap:6px;flex-wrap:wrap;}
+  .card-pill{font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:20px;}
+  .card-pill.public{background:rgba(31,110,99,0.12);color:var(--court-dark);}
+  .card-pill.school{background:rgba(47,111,216,0.1);color:var(--school);}
+  .card-pill.tennis{background:rgba(127,181,71,0.15);color:#4a7a1f;}
+  .card-pill.pickleball{background:rgba(79,163,199,0.15);color:#2a7a9c;}
+
+  .loc-card-quick{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--line);gap:10px;}
+  .card-avail{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:6px;}
+  .card-avail .avail-fraction{color:var(--available);}
+  .card-avail .avail-label{font-size:11.5px;font-weight:600;color:var(--ink-soft);}
+  .card-waiting-tag{font-size:12px;font-weight:600;color:var(--queue);display:flex;align-items:center;gap:5px;}
+  .card-waiting-tag.none{color:var(--ink-soft);font-weight:400;}
+
+  .loc-card-foot{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;}
+  .card-dist{font-size:12px;color:var(--ink-soft);display:flex;align-items:center;gap:5px;}
+  .card-rating{font-size:12px;font-weight:600;}
+  .card-hours{font-size:11.5px;color:var(--ink-soft);}
+  .card-amenity-icons{display:flex;gap:6px;font-size:14px;}
+
+  /* ---------- QR landing screen (what you see after scanning the door) ---------- */
+  .qr-landing{position:fixed;inset:0;background:var(--chalk);z-index:3000;display:none;overflow-y:auto;}
+  .qr-landing.open{display:block;}
+  .qr-landing-topbar{position:sticky;top:0;z-index:10;background:rgba(246,243,234,0.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 16px;}
+  .qr-back-btn{border:none;background:var(--line);color:var(--ink-soft);padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;}
+  .qr-back-btn:hover{background:#d8d2c0;}
+  .qr-landing-inner{max-width:440px;margin:0 auto;padding:18px 16px 60px;}
+
+  .qr-verified-banner{display:flex;align-items:center;gap:7px;background:rgba(46,139,87,0.12);color:var(--available);font-size:12.5px;font-weight:600;padding:9px 14px;border-radius:10px;margin-bottom:16px;}
+
+  .qr-hero{display:flex;gap:16px;align-items:flex-start;margin-bottom:14px;}
+  .qr-hero-text h1{font-family:'Space Grotesk',sans-serif;font-size:24px;margin:7px 0 4px;letter-spacing:-0.01em;}
+  .qr-landing-loc{font-size:13px;color:var(--ink-soft);line-height:1.4;}
+
+  .qr-meta-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;flex-wrap:wrap;}
+  .qr-meta-row .hours-row{font-size:12.5px;}
+
+  .qr-landing .amenities-row{padding:10px 0 16px;border:none;}
+  .qr-landing .court-row{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:14px;box-shadow:var(--card-shadow);}
+  .qr-landing .court-row-top{margin-bottom:12px;}
+  .qr-landing .ct-name{font-size:21px;}
+  .qr-landing .status-pill{font-size:15px;padding:7px 15px;}
+  .qr-landing .status-pill .dot{width:10px;height:10px;}
+  .qr-landing .status-clock-icon{width:15px;height:15px;}
+  .qr-landing .ct-sub{font-size:14.5px;margin-bottom:16px;}
+  .qr-landing .players-line{font-size:14.5px;margin-bottom:14px;}
+  .qr-landing .ct-actions{gap:10px;}
+  .qr-landing .btn{padding:15px 0;font-size:15.5px;border-radius:13px;}
+  .qr-landing .start-form .sf-label{font-size:12.5px;margin:12px 0 8px;}
+  .qr-landing .dur-btn{padding:12px 0;font-size:14px;border-radius:10px;}
+  .qr-landing .partner-row input{padding:12px 13px;font-size:14.5px;border-radius:10px;}
+  .qr-landing .add-partner{font-size:13px;}
+  .qr-landing .queue-section{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px 22px;box-shadow:var(--card-shadow);}
+  .qr-landing .queue-section .sf-label{font-size:12.5px;}
+  .qr-landing .avatar{width:26px;height:26px;font-size:11px;}
+  .qr-landing .queue-text{font-size:13px;}
+
+  /* ---------- Toast (replaces alert()) ---------- */
+  #toast{
+    position:fixed;left:50%;bottom:28px;transform:translate(-50%,12px);
+    background:var(--ink);color:#fff;padding:12px 18px;border-radius:11px;
+    font-size:13px;font-weight:500;box-shadow:var(--card-shadow);
+    z-index:4000;opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease;
+    max-width:90vw;text-align:center;
+  }
+  #toast.show{opacity:1;transform:translate(-50%,0);}
+  .modal-text{font-size:13.5px;color:var(--ink-soft);line-height:1.5;margin:4px 0 0;}
+
+  /* ---------- QR modal ---------- */
+  .qr-overlay{position:fixed;inset:0;background:rgba(27,36,33,0.45);z-index:2000;display:none;align-items:center;justify-content:center;}
+  .qr-overlay.open{display:flex;}
+  .qr-card{width:300px;padding:22px;border-radius:18px;text-align:center;position:relative;}
+  #qr-canvas{display:flex;justify-content:center;margin:12px 0;}
+  .qr-url{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);word-break:break-all;background:#EFEBDE;padding:8px;border-radius:8px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <div id="topbar">
+    <div id="brand" class="glass">
+      <div class="mark">CS</div>
+      <div>
+        <div class="name">CourtSide</div>
+        <div class="tag" id="brand-tag">Loading…</div>
+      </div>
+    </div>
+
+    <div id="view-menu-wrap" class="glass" style="position:relative;flex:0 0 auto;">
+      <button id="view-menu-btn" onclick="toggleViewMenu()" style="display:flex;align-items:center;gap:7px;border:none;background:none;padding:10px 14px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;white-space:nowrap;">
+        ☰ Menu
+      </button>
+      <div id="view-menu-dropdown" class="view-dropdown">
+        <div class="vd-section-label">View</div>
+        <button class="vd-item active" id="vd-map-btn" onclick="switchView('map')">🗺 Map view</button>
+        <button class="vd-item" id="vd-card-btn" onclick="switchView('card')">⊞ Card view</button>
+        <div class="vd-divider"></div>
+        <div class="vd-section-label">Location</div>
+        <div style="padding:2px 10px 6px;">
+          <input id="city-search-input" class="field" type="text" placeholder="Search a city…" style="margin-bottom:0;font-size:12.5px;padding:8px 10px;" oninput="filterCitySuggestions(this.value)" onkeydown="if(event.key==='Enter') trySelectTypedCity()">
+          <div id="city-suggestions"></div>
+        </div>
+        <div class="vd-divider"></div>
+        <button class="vd-item" onclick="toggleAdmin();toggleViewMenu()">🛠 Admin</button>
+      </div>
+    </div>
+
+    <div id="sport-bar" class="glass">
+      <button class="sport-btn active" id="sport-tennis-btn" onclick="toggleSport('tennis')" title="Tennis courts">Tennis <span class="sport-count" id="count-tennis">—</span></button>
+      <button class="sport-btn active" id="sport-pickleball-btn" onclick="toggleSport('pickleball')" title="Pickleball courts">Pickleball <span class="sport-count" id="count-pickleball">—</span></button>
+    </div>
+
+    <div id="radius-bar" class="glass">
+      <!-- Map view: distance slider -->
+      <div id="radius-map-content" style="display:flex;align-items:center;gap:10px;">
+        <button id="locate-btn" title="Use my location" onclick="useMyLocation()">📍</button>
+        <span class="r-label">Within</span>
+        <input type="range" id="radius-slider" min="0.5" max="10" step="0.5" value="3">
+        <span id="radius-value">3.0 mi</span>
+      </div>
+      <!-- Card view: sort controls -->
+      <div id="radius-card-content" style="display:none;align-items:center;gap:6px;">
+        <span class="r-label">Sort by</span>
+        <button class="sort-pill active" id="sp-distance" onclick="setSort('distance')">📍 Distance</button>
+        <button class="sort-pill" id="sp-available" onclick="setSort('available')">✓ Availability</button>
+        <button class="sort-pill" id="sp-rating" onclick="setSort('rating')">★ Rating</button>
+      </div>
+    </div>
+
+    <div id="legend" class="glass">
+      <div id="legend-map-content" style="display:flex;gap:12px;align-items:center;">
+        <div class="legend-item"><span class="legend-dot" style="background:var(--court)"></span>Public</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--school)"></span>University/School</div>
+      </div>
+    </div>
+
+    <div id="admin-bar" class="glass">
+      <button id="admin-btn" onclick="toggleAdmin()">🛠 Admin</button>
+      <button id="add-location-btn" onclick="startAddLocation()">+ Add Location</button>
+    </div>
+  </div>
+
+  <div id="card-view" class="card-view-overlay">
+    <div id="card-view-inner"></div>
+  </div>
+
+  <div id="panel" class="glass">
+    <div id="panel-scroll"></div>
+  </div>
+
+  <div id="hint" class="glass">Scanning a court's QR code unlocks "I'm playing" and "End early" for that court. One shared queue waits for the next open court at each location, not a specific one. Admins can edit details, add courts, or close one for maintenance.</div>
+</div>
+
+<div id="qr-landing" class="qr-landing">
+  <div class="qr-landing-topbar">
+    <button class="qr-back-btn" onclick="closeQrLanding()">← Map</button>
+  </div>
+  <div class="qr-landing-inner">
+    <div id="qr-landing-content"></div>
+  </div>
+</div>
+
+<div id="qr-modal" class="qr-overlay">
+  <div class="qr-card glass">
+    <button id="panel-close" onclick="closeQr()">✕</button>
+    <div class="sf-label">Court QR code</div>
+    <div id="qr-canvas"></div>
+    <div class="qr-url" id="qr-url"></div>
+    <div class="ct-actions" style="margin-top:12px;">
+      <button class="btn ghost" onclick="copyQrUrl()">Copy link</button>
+      <button class="btn primary" onclick="simulateScan()">Simulate scan →</button>
+    </div>
+  </div>
+</div>
+
+<div id="app-modal" class="qr-overlay">
+  <div class="qr-card glass" id="app-modal-card"></div>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// ---------------------------------------------------------------
+// Mock data — in a real system this comes from GET /v1/locations
+// ---------------------------------------------------------------
+let LOCATIONS = [];
+const API_BASE = 'https://courtside-api-production.up.railway.app';
+
+// A stable per-browser identifier. There's no login system, so this is how
+// the backend recognizes "the same player" across different courts and
+// locations — it's what makes the one-court-at-a-time and one-queue-at-a-time
+// rules enforceable instead of just trusted client state.
+function getDeviceId(){
+  let id = localStorage.getItem('courtside_device_id');
+  if (!id){
+    id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    localStorage.setItem('courtside_device_id', id);
+  }
+  return id;
+}
+const DEVICE_ID = getDeviceId();
+
+// ---------------------------------------------------------------
+// Live updates — WebSocket connection to the API
+// ---------------------------------------------------------------
+// Turns "https://..." into "wss://..." (and "http://" into "ws://") so this
+// works the same on your local dev server and on the deployed Railway URL.
+const WS_URL = API_BASE.replace(/^http/, 'ws');
+let socket = null;
+
+function connectSocket(){
+  socket = new WebSocket(WS_URL);
+
+  socket.addEventListener('open', () => {
+    console.log('🔌 Live updates connected');
+  });
+
+  socket.addEventListener('message', (event) => {
+    try {
+      const { type, payload } = JSON.parse(event.data);
+      if (type === 'court_update') handleCourtUpdate(payload);
+      else if (type === 'queue_update') handleQueueUpdate(payload);
+    } catch(err) {
+      console.error('Could not parse live update:', err);
+    }
+  });
+
+  socket.addEventListener('close', () => {
+    console.log('🔌 Live updates disconnected — reconnecting in 3s');
+    setTimeout(connectSocket, 3000);
+  });
+
+  socket.addEventListener('error', () => {
+    socket.close(); // triggers the 'close' handler above, which retries
+  });
+}
+
+// A court somewhere just changed — either a session started, ended, was
+// extended, or expired. This might be a court on a screen we're not even
+// looking at right now, so just patch LOCATIONS and let refreshAll()
+// figure out what's currently visible.
+function handleCourtUpdate(payload){
+  const { court } = findCourt(payload.location_id, payload.court_id) || {};
+  if (!court) return; // location/court not loaded on this device — ignore
+
+  // If this is our own session, keep our local copy (it already shows
+  // "You" correctly) instead of overwriting it with the generic broadcast
+  // version, which doesn't know which name in the list is "you".
+  const isMine = myActiveSession
+    && myActiveSession.locId === payload.location_id
+    && myActiveSession.courtId === payload.court_id;
+  if (isMine && payload.status === 'in_use') {
+    if (payload.session) court.session.endsAt = new Date(payload.session.ends_at).getTime();
+    refreshAll();
+    return;
+  }
+
+  court.status = payload.status === 'in_use' ? 'inuse' : 'available';
+  court.session = payload.session ? {
+    id: payload.session.id,
+    partners: payload.session.players,
+    endsAt: new Date(payload.session.ends_at).getTime(),
+    durationMin: payload.session.duration_mins,
+    expired: false
+  } : null;
+
+  refreshAll();
+}
+
+// The waiting list at a location changed — replace it wholesale with the
+// authoritative list from the server, but keep our own "You" entry as-is
+// if we're the one in it.
+function handleQueueUpdate(payload){
+  const loc = LOCATIONS.find(l=>l.id===payload.location_id);
+  if (!loc) return;
+
+  loc.queue = payload.queue.map(entry => {
+    if (myActiveQueue && myActiveQueue.queueId === entry.id){
+      return { name: 'You', id: entry.id };
+    }
+    return { name: entry.name, id: entry.id };
+  });
+
+  refreshAll();
+}
+
+async function loadLocations(){
+  try {
+    const res = await fetch(
+      `${API_BASE}/v1/locations?lat=${ORIGIN.lat}&lng=${ORIGIN.lng}&radius_miles=${radiusMiles}`
+    );
+    if (!res.ok) throw new Error('API error');
+    LOCATIONS = await res.json();
+    renderMarkers();
+    updateSportCounts();
+    updateCurrentCityLabel();
+    await restoreMyActivity(); // ← reattach any session/queue this device already holds
+    handleDeepLink(); // ← add this line
+  } catch(err) {
+    console.error('Could not load locations:', err);
+    showToast('Could not load court data — check your connection.');
+  }
+}
+
+// On page load, ask the server whether this device already has an active
+// session or queue spot anywhere, so refreshing the page (or opening a
+// different location) can't be used to get around the one-at-a-time rules.
+async function restoreMyActivity(){
+  try {
+    const [sessRes, queueRes] = await Promise.all([
+      fetch(`${API_BASE}/v1/sessions/mine?device_id=${encodeURIComponent(DEVICE_ID)}`),
+      fetch(`${API_BASE}/v1/queue/mine?device_id=${encodeURIComponent(DEVICE_ID)}`)
+    ]);
+
+    if (sessRes.ok){
+      const { session } = await sessRes.json();
+      if (session){
+        myActiveSession = { locId: session.location_id, courtId: session.court_id, sessionId: session.id };
+        const { court } = findCourt(session.location_id, session.court_id) || {};
+        if (court && (!court.session || court.session.id !== session.id)){
+          court.status = 'inuse';
+          court.session = {
+            id: session.id,
+            partners: ['You', ...(session.partners_json || [])],
+            endsAt: new Date(session.ends_at).getTime(),
+            durationMin: session.duration_mins,
+            expired: new Date(session.ends_at).getTime() <= Date.now()
+          };
+        }
+      }
+    }
+
+    if (queueRes.ok){
+      const { entry } = await queueRes.json();
+      if (entry){
+        myActiveQueue = { locId: entry.location_id, queueId: entry.id };
+        const loc = LOCATIONS.find(l=>l.id===entry.location_id);
+        if (loc && !loc.queue.some(q=>q.id===entry.id)){
+          loc.queue.push({ name: 'You', id: entry.id });
+        }
+      }
+    }
+
+    refreshAll();
+  } catch(err) {
+    console.error('restoreMyActivity error:', err);
+  }
+}
+
+const TYPE_LABELS = {
+  public: "Public · open to all",
+  school: "University / School",
+};
+const TYPE_COLORS = { public:'#1F6E63', school:'#2F6FD8' };
+const SPORT_ICONS = { tennis:'🎾', pickleball:'🏓' };
+
+
+// ---------------------------------------------------------------
+// Map setup
+// ---------------------------------------------------------------
+const map = L.map('map', { zoomControl:false, attributionControl:false })
+  .setView([43.8635, -79.425], 13.2);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' }).addTo(map);
+L.control.zoom({ position:'bottomright' }).addTo(map);
+
+let ORIGIN = { lat: 43.8635, lng: -79.4250 };
+let radiusMiles = 3;
+
+
+
+const youIcon = L.divIcon({
+  html: `<div class="you-marker"><div class="pulse"></div><div class="core"></div></div>`,
+  className:'', iconSize:[18,18], iconAnchor:[9,9]
+});
+const youMarker = L.marker([ORIGIN.lat, ORIGIN.lng], { icon: youIcon, zIndexOffset: 1000 }).addTo(map);
+
+const radiusCircle = L.circle([ORIGIN.lat, ORIGIN.lng], {
+  radius: radiusMiles * 1609.34,
+  color: '#1F6E63', weight: 1.5, fillColor:'#1F6E63', fillOpacity:0.06, dashArray:'4 6'
+}).addTo(map);
+
+function distanceMiles(lat1, lng1, lat2, lng2){
+  const R = 3958.8;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLng = (lng2-lng1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function isWithinRadius(loc){ return distanceMiles(ORIGIN.lat, ORIGIN.lng, loc.lat, loc.lng) <= radiusMiles; }
+function isVisible(loc){ return isWithinRadius(loc) && activeSports[loc.sport]; }
+
+function locStats(loc){
+  const total = loc.courts.length;
+  const closed = loc.courts.filter(c=>c.status==='closed').length;
+  const available = loc.courts.filter(c=>c.status==='available').length;
+  const inuse = loc.courts.filter(c=>c.status==='inuse').length;
+  const queue = loc.queue.length;
+  return {total, available, inuse, closed, queue};
+}
+
+// ---------------------------------------------------------------
+// Tennis- and pickleball-shaped map pins (SVG) instead of plain circles
+// ---------------------------------------------------------------
+function statusColorFor(s){
+  if (s.queue > 0) return '#B8860B';
+  if (s.inuse > 0) return '#C0552F';
+  if (s.available > 0) return '#2E8B57';
+  return '#8A9089';
+}
+function tennisPinSVG(frameColor, count, statusColor){
+  return `
+  <svg class="court-pin" width="42" height="52" viewBox="0 0 68 84" xmlns="http://www.w3.org/2000/svg">
+    <rect x="5" y="3" width="56" height="72" rx="14" fill="${frameColor}" stroke="#fff" stroke-width="2"/>
+    <rect x="11" y="9" width="44" height="60" rx="7" fill="#7FB547"/>
+    <rect x="15" y="12" width="36" height="54" rx="1" fill="none" stroke="#fff" stroke-width="1.6"/>
+    <line x1="21" y1="12" x2="21" y2="66" stroke="#fff" stroke-width="1.2"/>
+    <line x1="45" y1="12" x2="45" y2="66" stroke="#fff" stroke-width="1.2"/>
+    <line x1="15" y1="25.5" x2="51" y2="25.5" stroke="#fff" stroke-width="1.2"/>
+    <line x1="15" y1="52.5" x2="51" y2="52.5" stroke="#fff" stroke-width="1.2"/>
+    <line x1="15" y1="39" x2="51" y2="39" stroke="#fff" stroke-width="1.6"/>
+    <line x1="33" y1="25.5" x2="33" y2="52.5" stroke="#fff" stroke-width="1.2"/>
+    <circle cx="59" cy="9" r="9.5" fill="#fff" stroke="${frameColor}" stroke-width="1.6"/>
+    <text x="59" y="12.4" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="10" fill="${frameColor}" text-anchor="middle">${count}</text>
+    <circle cx="33" cy="73" r="5.2" fill="${statusColor}" stroke="#fff" stroke-width="1.8"/>
+  </svg>`;
+}
+function pickleballPinSVG(frameColor, count, statusColor){
+  return `
+  <svg class="court-pin" width="42" height="52" viewBox="0 0 68 84" xmlns="http://www.w3.org/2000/svg">
+    <rect x="5" y="3" width="56" height="72" rx="14" fill="${frameColor}" stroke="#fff" stroke-width="2"/>
+    <rect x="11" y="9" width="44" height="60" rx="7" fill="#4FA3C7"/>
+    <rect x="16" y="12" width="34" height="54" rx="1" fill="none" stroke="#fff" stroke-width="1.6"/>
+    <line x1="16" y1="39" x2="50" y2="39" stroke="#fff" stroke-width="1.8"/>
+    <line x1="16" y1="27" x2="50" y2="27" stroke="#fff" stroke-width="1.2"/>
+    <line x1="16" y1="51" x2="50" y2="51" stroke="#fff" stroke-width="1.2"/>
+    <line x1="33" y1="12" x2="33" y2="27" stroke="#fff" stroke-width="1.1"/>
+    <line x1="33" y1="51" x2="33" y2="66" stroke="#fff" stroke-width="1.1"/>
+    <circle cx="59" cy="9" r="9.5" fill="#fff" stroke="${frameColor}" stroke-width="1.6"/>
+    <text x="59" y="12.4" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="10" fill="${frameColor}" text-anchor="middle">${count}</text>
+    <circle cx="33" cy="73" r="5.2" fill="${statusColor}" stroke="#fff" stroke-width="1.8"/>
+  </svg>`;
+}
+function makeMarkerIcon(loc, selected){
+  const s = locStats(loc);
+  const draw = loc.sport === 'pickleball' ? pickleballPinSVG : tennisPinSVG;
+  const courtHtml = draw(TYPE_COLORS[loc.type], s.total, statusColorFor(s));
+  const html = selected
+    ? `<div class="court-pin-selected-ring">${courtHtml}</div>`
+    : courtHtml;
+  const size = selected ? [50,62] : [42,52];
+  const anchor = selected ? [25,60] : [21,52];
+  return L.divIcon({ html, className:'', iconSize:size, iconAnchor:anchor });
+}
+function heroCourtSvg(sport, frameColor){
+  if (sport === 'pickleball'){
+    return `<svg width="62" height="76" viewBox="0 0 68 84" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="3" width="56" height="72" rx="14" fill="${frameColor}" stroke="#fff" stroke-width="2"/>
+      <rect x="11" y="9" width="44" height="60" rx="7" fill="#4FA3C7"/>
+      <rect x="16" y="12" width="34" height="54" rx="1" fill="none" stroke="#fff" stroke-width="1.6"/>
+      <line x1="16" y1="39" x2="50" y2="39" stroke="#fff" stroke-width="1.8"/>
+      <line x1="16" y1="27" x2="50" y2="27" stroke="#fff" stroke-width="1.2"/>
+      <line x1="16" y1="51" x2="50" y2="51" stroke="#fff" stroke-width="1.2"/>
+      <line x1="33" y1="12" x2="33" y2="27" stroke="#fff" stroke-width="1.1"/>
+      <line x1="33" y1="51" x2="33" y2="66" stroke="#fff" stroke-width="1.1"/>
+    </svg>`;
+  }
+  return `<svg width="62" height="76" viewBox="0 0 68 84" xmlns="http://www.w3.org/2000/svg">
+    <rect x="5" y="3" width="56" height="72" rx="14" fill="${frameColor}" stroke="#fff" stroke-width="2"/>
+    <rect x="11" y="9" width="44" height="60" rx="7" fill="#7FB547"/>
+    <rect x="15" y="12" width="36" height="54" rx="1" fill="none" stroke="#fff" stroke-width="1.6"/>
+    <line x1="21" y1="12" x2="21" y2="66" stroke="#fff" stroke-width="1.2"/>
+    <line x1="45" y1="12" x2="45" y2="66" stroke="#fff" stroke-width="1.2"/>
+    <line x1="15" y1="25.5" x2="51" y2="25.5" stroke="#fff" stroke-width="1.2"/>
+    <line x1="15" y1="52.5" x2="51" y2="52.5" stroke="#fff" stroke-width="1.2"/>
+    <line x1="15" y1="39" x2="51" y2="39" stroke="#fff" stroke-width="1.6"/>
+    <line x1="33" y1="25.5" x2="33" y2="52.5" stroke="#fff" stroke-width="1.2"/>
+  </svg>`;
+}
+
+const markers = {};
+function renderMarkers(){
+  LOCATIONS.forEach(loc=>{
+    const selected = (loc.id === activeLocId);
+    const icon = makeMarkerIcon(loc, selected);
+    const visible = isVisible(loc);
+    if (markers[loc.id]) {
+      markers[loc.id].setIcon(icon);
+      markers[loc.id].setZIndexOffset(selected ? 900 : 0);
+      const onMap = map.hasLayer(markers[loc.id]);
+      if (visible && !onMap) markers[loc.id].addTo(map);
+      if (!visible && onMap) map.removeLayer(markers[loc.id]);
+    } else if (visible) {
+      const m = L.marker([loc.lat, loc.lng], { icon, zIndexOffset: selected ? 900 : 0 }).addTo(map);
+      m.on('click', ()=> openPanel(loc.id));
+      markers[loc.id] = m;
+    }
+  });
+}
+
+// ---------------------------------------------------------------
+// Sport filter — two icon toggles replace the old numeric stats bar
+// ---------------------------------------------------------------
+const activeSports = { tennis: true, pickleball: true };
+function toggleSport(sport){
+  const otherSport = sport === 'tennis' ? 'pickleball' : 'tennis';
+  if (activeSports[sport] && !activeSports[otherSport]) return; // keep at least one on
+  activeSports[sport] = !activeSports[sport];
+  document.getElementById(`sport-${sport}-btn`).classList.toggle('active', activeSports[sport]);
+  if (activeLocId){
+    const loc = LOCATIONS.find(l=>l.id===activeLocId);
+    if (loc && !isVisible(loc)) closePanel();
+  }
+  refreshAll();
+  if (currentView === 'card'){
+    renderCardView();
+  }
+}
+function updateSportCounts(){
+  const visibleLocs = LOCATIONS.filter(isWithinRadius);
+  document.getElementById('count-tennis').textContent = visibleLocs.filter(l=>l.sport==='tennis').length;
+  document.getElementById('count-pickleball').textContent = visibleLocs.filter(l=>l.sport==='pickleball').length;
+}
+
+// ---------------------------------------------------------------
+// Global rules: one queue at a time across the whole map
+// ---------------------------------------------------------------
+let myActiveQueue = null;
+// The one court this device is currently playing on, anywhere in the app —
+// { locId, courtId, sessionId } or null. Mirrors myActiveQueue but for
+// sessions, and is what lets us block starting a second session anywhere.
+let myActiveSession = null;
+let isAdmin = false;
+let editingLoc = null;
+const drafts = {};
+
+// Courts the user has "unlocked" by scanning that court's QR code
+// (or simulating the scan). Action buttons stay locked until then.
+const verifiedCourts = new Set();
+function isVerifiedAtLocation(locId){ return verifiedCourts.has(locId); }
+function isVerified(locId, courtId){ return verifiedCourts.has(locId); }
+
+// The focused full-screen page you land on after scanning a court's
+// door QR code — { locId, courtId } while open, otherwise null.
+let qrLandingCourt = null;
+
+function findCourt(locId, courtId){
+  const loc = LOCATIONS.find(l=>l.id===locId);
+  const court = loc.courts.find(c=>c.id===courtId);
+  return {loc, court};
+}
+
+function freeCourt(loc, court){
+  // If the court being freed was the one *this device* was playing on,
+  // release the one-court-at-a-time lock too.
+  if (myActiveSession && court.session && court.session.id === myActiveSession.sessionId){
+    myActiveSession = null;
+  }
+  court.status = 'available';
+  court.session = null;
+  if (loc.queue.length){
+    const next = loc.queue.shift();
+    if (next.name === 'You'){
+      myActiveQueue = null;
+      showToast(`${court.name} at ${loc.name} just opened up — it's your turn!`);
+    }
+  }
+}
+
+function fmtClock(ms){
+  if (ms < 0) ms = 0;
+  const totalSec = Math.floor(ms/1000);
+  const m = Math.floor(totalSec/60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+function clockIcon(color){
+  return `<svg class="status-clock-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="9"/>
+    <line x1="12" y1="3" x2="12" y2="4.5"/>
+    <line x1="12" y1="19.5" x2="12" y2="21"/>
+    <line x1="3" y1="12" x2="4.5" y2="12"/>
+    <line x1="19.5" y1="12" x2="21" y2="12"/>
+    <line x1="12" y1="12" x2="12" y2="7"/>
+    <line x1="12" y1="12" x2="15.5" y2="15"/>
+  </svg>`;
+}
+
+// ---------------------------------------------------------------
+// Starting a session (duration + required playing partner)
+// ---------------------------------------------------------------
+function ensureDraft(locId, courtId){
+  const key = `${locId}:${courtId}`;
+  if (!drafts[key]) drafts[key] = { open:false, duration:60, partners:[''] };
+  return drafts[key];
+}
+function toggleStartForm(locId, courtId){
+  const d = ensureDraft(locId, courtId);
+  d.open = !d.open;
+  renderAllViews();
+}
+function setDraftDuration(locId, courtId, mins){
+  ensureDraft(locId, courtId).duration = mins;
+  renderAllViews();
+}
+function addDraftPartner(locId, courtId){
+  const d = ensureDraft(locId, courtId);
+  if (d.partners.length < 3) d.partners.push('');
+  renderAllViews();
+}
+function removeDraftPartner(locId, courtId, idx){
+  const d = ensureDraft(locId, courtId);
+  if (d.partners.length > 1) d.partners.splice(idx, 1);
+  renderAllViews();
+}
+function updateDraftPartner(locId, courtId, idx, value){
+  ensureDraft(locId, courtId).partners[idx] = value;
+}
+async function confirmStart(locId, courtId){
+  const key = `${locId}:${courtId}`;
+  const d = drafts[key] || { duration:60, partners:[''] };
+  const names = d.partners.map(p=>p.trim()).filter(Boolean);
+  if (names.length === 0){
+    showToast("Add at least one playing partner before starting.");
+    return;
+  }
+
+  // A player can only be on one court at a time.
+  if (myActiveSession && myActiveSession.courtId !== courtId){
+    const { loc: otherLoc, court: otherCourt } = findCourt(myActiveSession.locId, myActiveSession.courtId) || {};
+    const where = otherLoc && otherCourt ? ` on ${otherCourt.name} at ${otherLoc.name}` : '';
+    showToast(`You're already playing${where}. End that session before starting another.`);
+    return;
+  }
+
+  // Can't start a session while waiting in a queue somewhere.
+  if (myActiveQueue){
+    showToast("You're in a queue right now — leave it before starting a session.");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/v1/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        court_id: courtId,
+        location_id: locId,
+        duration_mins: d.duration,
+        player_name: 'You',
+        partners: names,
+        device_id: DEVICE_ID
+      })
+    });
+
+    if (!res.ok){
+      const err = await res.json();
+      showToast(err.message || err.error || 'Could not start session — try again.');
+      return;
+    }
+
+    const session = await res.json();
+
+    const { court } = findCourt(locId, courtId);
+    court.status = 'inuse';
+    court.session = {
+      id: session.session_id,
+      partners: ['You', ...names],
+      endsAt: new Date(session.ends_at).getTime(),
+      durationMin: session.duration_mins,
+      expired: false
+    };
+    myActiveSession = { locId, courtId, sessionId: session.session_id };
+
+    delete drafts[key];
+    refreshAll();
+
+  } catch(err) {
+    console.error('confirmStart error:', err);
+    showToast('Could not connect to server — check your connection.');
+  }
+}
+
+async function addTime(locId, courtId){
+  const { court } = findCourt(locId, courtId);
+  if (!court.session) return;
+  const sessionId = court.session.id;
+
+  try {
+    const res = await fetch(`${API_BASE}/v1/sessions/${sessionId}/extend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!res.ok){
+      const err = await res.json();
+      if (err.error === 'queue_not_empty'){
+        showToast('Someone is waiting — you cannot extend while others are in the queue.');
+      } else {
+        showToast(err.message || 'Could not extend session.');
+      }
+      return;
+    }
+
+    const data = await res.json();
+    court.session.endsAt = new Date(data.ends_at).getTime();
+    court.session.expired = false;
+    refreshAll();
+
+  } catch(err) {
+    console.error('addTime error:', err);
+    showToast('Could not connect to server.');
+  }
+}
+
+async function endSession(locId, courtId){
+  const { loc, court } = findCourt(locId, courtId);
+  const sessionId = court.session?.id;
+
+  if (sessionId){
+    try {
+      await fetch(`${API_BASE}/v1/sessions/${sessionId}`, {
+        method: 'DELETE'
+      });
+    } catch(err) {
+      console.error('endSession error:', err);
+    }
+  }
+
+  freeCourt(loc, court); // clears myActiveSession if this was mine
+  refreshAll();
+}
+
+async function joinLocationQueue(locId){
+  const loc = LOCATIONS.find(l=>l.id===locId);
+
+  const expiredCourt = loc.courts.find(c=>c.status==='inuse' && c.session && c.session.expired);
+  if (expiredCourt){
+    expiredCourt.status = 'available';
+    expiredCourt.session = null;
+    refreshAll();
+    return;
+  }
+
+  if (myActiveQueue && myActiveQueue.locId !== locId){
+    showToast("You're already waiting in another location's queue. Leave it first.");
+    return;
+  }
+
+  // Can't queue while already playing somewhere.
+  if (myActiveSession){
+    const { loc: otherLoc, court: otherCourt } = findCourt(myActiveSession.locId, myActiveSession.courtId) || {};
+    const where = otherLoc && otherCourt ? ` on ${otherCourt.name} at ${otherLoc.name}` : '';
+    showToast(`You're already playing${where} — end that session before joining a queue.`);
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/v1/queue/${locId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guest_name: 'You', device_id: DEVICE_ID })
+    });
+
+    if (!res.ok){
+      const err = await res.json();
+      showToast(err.message || err.error || 'Could not join queue — try again.');
+      return;
+    }
+
+    const data = await res.json();
+
+    loc.queue.push({ name: 'You', id: data.queue_id });
+    myActiveQueue = { locId, queueId: data.queue_id };
+    showToast(data.message);
+    refreshAll();
+
+  } catch(err) {
+    console.error('joinLocationQueue error:', err);
+    showToast('Could not connect to server.');
+  }
+}
+
+async function leaveLocationQueue(locId){
+  if (!myActiveQueue || !myActiveQueue.queueId){
+    const loc = LOCATIONS.find(l=>l.id===locId);
+    loc.queue = loc.queue.filter(q=>q.name!=='You');
+    myActiveQueue = null;
+    refreshAll();
+    return;
+  }
+
+  try {
+    await fetch(`${API_BASE}/v1/queue/${locId}/leave`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ queue_id: myActiveQueue.queueId, device_id: DEVICE_ID })
+    });
+
+  } catch(err) {
+    console.error('leaveLocationQueue error:', err);
+  }
+
+  const loc = LOCATIONS.find(l=>l.id===locId);
+  loc.queue = loc.queue.filter(q=>q.name!=='You');
+  myActiveQueue = null;
+  refreshAll();
+}
+
+// ---------------------------------------------------------------
+// Admin: close / reopen / delete / add courts, edit locations
+// ---------------------------------------------------------------
+function toggleAdmin(){
+  if (!isAdmin){
+    showPromptModal('Admin password', 'demo password: admin123', (pw)=>{
+      if (pw === undefined || pw === null) return;
+      if (pw !== 'admin123'){ showToast('Incorrect password.'); return; }
+      isAdmin = true;
+      applyAdminButtonState();
+    });
+    return;
+  }
+  isAdmin = false;
+  applyAdminButtonState();
+}
+function applyAdminButtonState(){
+  const btn = document.getElementById('admin-btn');
+  const addBtn = document.getElementById('add-location-btn');
+  btn.textContent = isAdmin ? '🛠 Admin mode ✓' : '🛠 Admin';
+  btn.classList.toggle('active', isAdmin);
+  addBtn.style.display = isAdmin ? 'inline-block' : 'none';
+  if (activeLocId) renderPanel();
+}
+function closeCourtForMaintenance(locId, courtId){
+  showPromptModal('Reason for closing this court', 'e.g. "Resurfacing until July 10"', async (reason)=>{
+    if (reason === undefined || reason === null) return;
+    const finalReason = (reason && reason.trim()) || 'Maintenance';
+    try {
+      const res = await fetch(`${API_BASE}/v1/admin/courts/${courtId}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: finalReason })
+      });
+      if (!res.ok) throw new Error('Server rejected the request');
+
+      const { court } = findCourt(locId, courtId);
+      court.status = 'closed';
+      court.closeReason = finalReason;
+      court.session = null;
+      refreshAll();
+    } catch(err) {
+      console.error('closeCourtForMaintenance error:', err);
+      showToast('Could not close the court — check your connection and try again.');
+    }
+  });
+}
+async function reopenCourt(locId, courtId){
+  try {
+    const res = await fetch(`${API_BASE}/v1/admin/courts/${courtId}/reopen`, { method: 'POST' });
+    if (!res.ok) throw new Error('Server rejected the request');
+
+    const { court } = findCourt(locId, courtId);
+    court.status = 'available';
+    court.closeReason = null;
+    refreshAll();
+  } catch(err) {
+    console.error('reopenCourt error:', err);
+    showToast('Could not reopen the court — check your connection and try again.');
+  }
+}
+function deleteCourt(locId, courtId){
+  showConfirmModal('Delete this court? This cannot be undone.', async ()=>{
+    try {
+      const res = await fetch(`${API_BASE}/v1/admin/courts/${courtId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Server rejected the request');
+
+      const loc = LOCATIONS.find(l=>l.id===locId);
+      loc.courts = loc.courts.filter(c=>c.id!==courtId);
+      refreshAll();
+    } catch(err) {
+      console.error('deleteCourt error:', err);
+      showToast('Could not delete the court — check your connection and try again.');
+    }
+  });
+}
+function addCourtToLocation(locId){
+  const loc = LOCATIONS.find(l=>l.id===locId);
+  const n = loc.courts.length + 1;
+  const label = `Court ${n}`;
+  addCourtBtnBusy(locId, true);
+  fetch(`${API_BASE}/v1/admin/courts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ location_id: locId, label })
+  })
+    .then(res => {
+      if (!res.ok) throw new Error('Server rejected the request');
+      return res.json();
+    })
+    .then(court => {
+      loc.courts.push({ id: court.id, name: court.label, status: court.status, session: null });
+      refreshAll();
+    })
+    .catch(err => {
+      console.error('addCourtToLocation error:', err);
+      showToast('Could not add the court — check your connection and try again.');
+    })
+    .finally(() => addCourtBtnBusy(locId, false));
+}
+function addCourtBtnBusy(locId, busy){
+  const btn = document.querySelector(`#panel [onclick="addCourtToLocation('${locId}')"]`);
+  if (btn) { btn.disabled = busy; btn.textContent = busy ? 'Adding…' : '+ Add court to this location'; }
+}
+
+// Hours can come from two shapes: a plain string (only ever produced
+// locally, never actually saved), or the real hours_json object shape the
+// API returns — e.g. { "Mon": { "open": "07:00", "close": "21:00" }, ... }.
+// This renders either one without falling back to "[object Object]".
+function formatHours(hours){
+  if (!hours) return 'Hours not listed';
+  if (typeof hours === 'string') return hours;
+  if (hours.note) return hours.note;
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'short' });
+  const todayHours = hours[today];
+  if (todayHours && todayHours.open && todayHours.close){
+    return `${to12h(todayHours.open)} – ${to12h(todayHours.close)} today`;
+  }
+  const any = Object.values(hours)[0];
+  if (any && any.open && any.close) return `${to12h(any.open)} – ${to12h(any.close)}`;
+  return 'Hours not listed';
+}
+function to12h(t){
+  const [h, m] = t.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = ((h + 11) % 12) + 1;
+  return `${h12}:${String(m).padStart(2,'0')} ${period}`;
+}
+function toggleEditLocation(locId){
+  editingLoc = (editingLoc === locId) ? null : locId;
+  renderPanel();
+}
+async function saveLocationEdits(locId){
+  const loc = LOCATIONS.find(l=>l.id===locId);
+  const name = document.getElementById('edit-name').value.trim() || loc.name;
+  const sport = document.getElementById('edit-sport').value;
+  const type = document.getElementById('edit-type').value;
+  const address = document.getElementById('edit-address').value.trim() || loc.address;
+  const city = document.getElementById('edit-city').value.trim() || loc.city;
+  const hoursText = document.getElementById('edit-hours').value.trim();
+  const lights = document.getElementById('edit-lights').checked;
+  const parking = document.getElementById('edit-parking').checked;
+  const restrooms = document.getElementById('edit-restrooms').checked;
+  const water = document.getElementById('edit-water').checked;
+
+  const saveBtn = document.querySelector(`[onclick="saveLocationEdits('${locId}')"]`);
+  if (saveBtn){ saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+
+  try {
+    const res = await fetch(`${API_BASE}/v1/admin/locations/${locId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name, sport, type, address, city,
+        hours_json: hoursText ? { note: hoursText } : (typeof loc.hours === 'object' ? loc.hours : {}),
+        surface: loc.surface, setting: loc.setting,
+        lights, parking, restrooms, water
+      })
+    });
+
+    if (!res.ok){
+      const err = await res.json();
+      showToast(err.error || 'Could not save changes — try again.');
+      return;
+    }
+
+    loc.name = name;
+    loc.sport = sport;
+    loc.type = type;
+    loc.address = address;
+    loc.city = city;
+    loc.hours = hoursText ? { note: hoursText } : loc.hours;
+    loc.amenities = { lights, parking, restrooms, water };
+    editingLoc = null;
+    refreshAll();
+    showToast('Changes saved.');
+
+  } catch(err) {
+    console.error('saveLocationEdits error:', err);
+    showToast('Could not connect to server — check your connection.');
+  } finally {
+    if (saveBtn){ saveBtn.disabled = false; saveBtn.textContent = 'Save changes'; }
+  }
+}
+
+// ---------------------------------------------------------------
+// Admin: add a brand-new location by clicking the map
+// ---------------------------------------------------------------
+let placingLocation = false;
+let tempMarker = null;
+
+function startAddLocation(){
+  if (!isAdmin){ showToast('Enable Admin Mode first.'); return; }
+  placingLocation = true;
+  document.getElementById('map').style.cursor = 'crosshair';
+  closePanel();
+}
+map.on('click', (e)=>{
+  if (!placingLocation) return;
+  placingLocation = false;
+  document.getElementById('map').style.cursor = '';
+  if (tempMarker) map.removeLayer(tempMarker);
+  tempMarker = L.circleMarker(e.latlng, { radius:10, color:'#1F6E63', fillColor:'#1F6E63', fillOpacity:0.5, weight:2, dashArray:'3 4' }).addTo(map);
+  openNewLocationForm(e.latlng.lat, e.latlng.lng);
+});
+function openNewLocationForm(lat, lng){
+  activeLocId = null;
+  const html = `
+    <div id="panel-head">
+      <button id="panel-close" onclick="cancelNewLocation()">✕</button>
+      <div class="sf-label">New court location</div>
+      <input id="new-name" class="field" type="text" placeholder="Location name">
+      <select id="new-sport" class="field">
+        <option value="tennis">🎾 Tennis</option>
+        <option value="pickleball">🏓 Pickleball</option>
+      </select>
+      <select id="new-type" class="field">
+        ${Object.keys(TYPE_LABELS).map(t=>`<option value="${t}">${TYPE_LABELS[t]}</option>`).join('')}
+      </select>
+      <input id="new-address" class="field" type="text" placeholder="Address">
+      <input id="new-city" class="field" type="text" placeholder="City">
+      <input id="new-hours" class="field" type="text" placeholder="Hours (e.g. 7:00 AM – 9:00 PM)">
+      <input id="new-courts" class="field" type="number" min="1" max="20" value="1" placeholder="Number of courts">
+      <div class="sf-label">Amenities</div>
+      <label class="check-label"><input id="new-lights" type="checkbox"> Lights</label>
+      <label class="check-label"><input id="new-parking" type="checkbox"> Parking</label>
+      <label class="check-label"><input id="new-restrooms" type="checkbox"> Restrooms</label>
+      <label class="check-label" style="margin-bottom:10px;"><input id="new-water" type="checkbox"> Water fountain</label>
+      <div class="dist-tag">Dropped at ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+      <div class="ct-actions" style="margin-top:10px;">
+        <button class="btn primary" onclick="createLocation(${lat},${lng})">Create location</button>
+        <button class="btn ghost" onclick="cancelNewLocation()">Cancel</button>
+      </div>
+    </div>`;
+  document.getElementById('panel-scroll').innerHTML = html;
+  document.getElementById('panel').classList.add('open');
+}
+function cancelNewLocation(){
+  if (tempMarker){ map.removeLayer(tempMarker); tempMarker = null; }
+  closePanel();
+}
+async function createLocation(lat, lng){
+  const name = document.getElementById('new-name').value.trim();
+  if (!name){ showToast('Give the location a name.'); return; }
+  const city = document.getElementById('new-city').value.trim();
+  if (!city){ showToast('City is required.'); return; }
+  const sport = document.getElementById('new-sport').value;
+  const type = document.getElementById('new-type').value;
+  const address = document.getElementById('new-address').value.trim() || 'No address provided';
+  const hoursText = document.getElementById('new-hours').value.trim();
+  const courtCount = Math.max(1, Math.min(20, parseInt(document.getElementById('new-courts').value) || 1));
+  const lights = document.getElementById('new-lights').checked;
+  const parking = document.getElementById('new-parking').checked;
+  const restrooms = document.getElementById('new-restrooms').checked;
+  const water = document.getElementById('new-water').checked;
+
+  const createBtn = document.querySelector(`[onclick="createLocation(${lat},${lng})"]`);
+  if (createBtn){ createBtn.disabled = true; createBtn.textContent = 'Creating…'; }
+
+  try {
+    const locRes = await fetch(`${API_BASE}/v1/admin/locations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name, sport, type, address, city, lat, lng,
+        hours_json: hoursText ? { note: hoursText } : {},
+        surface: 'hard', setting: 'outdoor',
+        lights, parking, restrooms, water
+      })
+    });
+
+    if (!locRes.ok){
+      const err = await locRes.json();
+      showToast(err.error || 'Could not create the location — try again.');
+      return;
+    }
+
+    const newLoc = await locRes.json();
+
+    const courts = [];
+    for (let i = 1; i <= courtCount; i++){
+      const courtRes = await fetch(`${API_BASE}/v1/admin/courts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_id: newLoc.id, label: `Court ${i}` })
+      });
+      if (courtRes.ok){
+        const court = await courtRes.json();
+        courts.push({ id: court.id, name: court.label, status: court.status, session: null });
+      }
+    }
+
+    LOCATIONS.push({
+      id: newLoc.id, name: newLoc.name, sport: newLoc.sport, type: newLoc.type,
+      address: newLoc.address, city: newLoc.city, hours: newLoc.hours_json,
+      lat: newLoc.lat, lng: newLoc.lng, rating: 0, reviews: 0,
+      surface: newLoc.surface, setting: newLoc.setting,
+      amenities: { lights, parking, restrooms, water },
+      courts, queue: []
+    });
+
+    if (tempMarker){ map.removeLayer(tempMarker); tempMarker = null; }
+    refreshAll();
+    openPanel(newLoc.id);
+    showToast(`${name} saved — visible to everyone now.`);
+    loadKnownCities(); // pick up a brand-new city immediately if this is its first location
+
+  } catch(err) {
+    console.error('createLocation error:', err);
+    showToast('Could not connect to server — check your connection.');
+  } finally {
+    if (createBtn){ createBtn.disabled = false; createBtn.textContent = 'Create location'; }
+  }
+}
+
+// ---------------------------------------------------------------
+// QR codes — scan one to jump straight to that court's action screen
+// ---------------------------------------------------------------
+let qrCurrentUrl = '';
+
+function buildCourtUrl(locId){
+  return `${location.origin}${location.pathname}?loc=${locId}`;
+}
+
+function showQr(locId){
+  qrCurrentUrl = buildCourtUrl(locId);
+  document.getElementById('qr-url').textContent = qrCurrentUrl;
+  const canvasEl = document.getElementById('qr-canvas');
+  canvasEl.innerHTML = '';
+  new QRCode(canvasEl, { text: qrCurrentUrl, width:160, height:160, colorDark:'#1B2421', colorLight:'#ffffff' });
+  document.getElementById('qr-modal').classList.add('open');
+}
+
+function closeQr(){ document.getElementById('qr-modal').classList.remove('open'); }
+function copyQrUrl(){
+  if (navigator.clipboard){
+    navigator.clipboard.writeText(qrCurrentUrl)
+      .then(()=>showToast('Link copied!'))
+      .catch(()=>showToast('Could not copy — long-press the link above instead.'));
+  } else {
+    showToast('Could not copy — long-press the link above instead.');
+  }
+}
+function simulateScan(){ location.href = qrCurrentUrl; }
+
+// ---------------------------------------------------------------
+// Toast + modal system — this runs inside a sandboxed preview where
+// native alert()/confirm()/prompt() can silently fail, so everything
+// uses these in-page equivalents instead.
+// ---------------------------------------------------------------
+let toastTimer = null;
+function showToast(message){
+  const t = document.getElementById('toast');
+  t.textContent = message;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+let modalCallback = null;
+function openAppModal(html){
+  document.getElementById('app-modal-card').innerHTML = html;
+  document.getElementById('app-modal').classList.add('open');
+}
+function closeAppModal(){
+  document.getElementById('app-modal').classList.remove('open');
+  modalCallback = null;
+}
+function showConfirmModal(message, onYes){
+  modalCallback = onYes;
+  openAppModal(`
+    <button id="panel-close" onclick="closeAppModal()">✕</button>
+    <div class="sf-label">Please confirm</div>
+    <p class="modal-text">${message}</p>
+    <div class="ct-actions" style="margin-top:16px;">
+      <button class="btn ghost" onclick="closeAppModal()">Cancel</button>
+      <button class="btn primary" onclick="appModalConfirm()">Confirm</button>
+    </div>
+  `);
+}
+function appModalConfirm(){
+  const cb = modalCallback;
+  closeAppModal();
+  if (cb) cb();
+}
+function showPromptModal(title, placeholder, onSubmit){
+  modalCallback = onSubmit;
+  openAppModal(`
+    <button id="panel-close" onclick="closeAppModal()">✕</button>
+    <div class="sf-label">${title}</div>
+    <input id="app-modal-input" class="field" type="text" placeholder="${placeholder || ''}" style="margin-top:6px;">
+    <div class="ct-actions" style="margin-top:10px;">
+      <button class="btn ghost" onclick="closeAppModal()">Cancel</button>
+      <button class="btn primary" onclick="appModalSubmit()">Submit</button>
+    </div>
+  `);
+  setTimeout(()=>{
+    const inp = document.getElementById('app-modal-input');
+    if (inp){
+      inp.focus();
+      inp.onkeydown = (e)=>{ if (e.key === 'Enter') appModalSubmit(); };
+    }
+  }, 50);
+}
+function appModalSubmit(){
+  const inp = document.getElementById('app-modal-input');
+  const val = inp ? inp.value : '';
+  const cb = modalCallback;
+  closeAppModal();
+  if (cb) cb(val);
+}
+
+// ---------------------------------------------------------------
+// Detail panel rendering
+// ---------------------------------------------------------------
+let activeLocId = null;
+
+function starsHtml(rating, reviews){
+  if (!reviews) return `<div class="rating-row"><span class="rating-count">No ratings yet</span></div>`;
+  const pct = Math.max(0, Math.min(100, (rating/5)*100));
+  return `<div class="rating-row">
+    <div class="stars"><div class="stars-bg">★★★★★</div><div class="stars-fg" style="width:${pct}%">★★★★★</div></div>
+    <span class="rating-num">${rating.toFixed(1)}</span>
+    <span class="rating-count">(${reviews})</span>
+  </div>`;
+}
+function amenitiesHtml(loc){
+  const items = [];
+  if (loc.amenities.lights) items.push('☀ Lights');
+  if (loc.amenities.parking) items.push('🅿 Parking');
+  if (loc.amenities.restrooms) items.push('🚻 Restrooms');
+  if (loc.amenities.water) items.push('💧 Water fountain');
+  if (!items.length) return `<div class="amenities-row"><span class="amenity none">No listed amenities</span></div>`;
+  return `<div class="amenities-row">${items.map(i=>`<span class="amenity">${i}</span>`).join('')}</div>`;
+}
+
+// ---------------------------------------------------------------
+// Busyness bar chart — pick a day, see every operating hour's
+// average % of courts in use that hour. Only renders once a
+// location has logged enough sessions to make the pattern meaningful.
+// ---------------------------------------------------------------
+const USAGE_THRESHOLD = 50;
+const selectedBusyDay = {}; // locId -> currently selected day label
+
+function busynessChartHtml(loc){
+  const usage = loc.usage || { samples: 0 };
+  if (usage.samples < USAGE_THRESHOLD){
+    return `<div class="busy-section">
+      <div class="sf-label">Busiest times this week</div>
+      <div class="busy-caption">Not enough data yet — ${usage.samples} session${usage.samples===1?'':'s'} logged (need ${USAGE_THRESHOLD}+).</div>
+    </div>`;
+  }
+
+  const days = Object.keys(usage.data);
+  const hours = usage.hours;
+
+  if (!selectedBusyDay[loc.id]){
+    let best = days[0], bestVal = -1;
+    days.forEach(d=>{
+      const m = Math.max(...usage.data[d]);
+      if (m > bestVal){ bestVal = m; best = d; }
+    });
+    selectedBusyDay[loc.id] = best;
+  }
+  const day = selectedBusyDay[loc.id];
+  const values = usage.data[day];
+
+  const dayTabs = days.map(d=>{
+    const active = d === day ? 'active' : '';
+    return `<button class="day-tab ${active}" onclick="selectBusyDay('${loc.id}','${d}')">${d}</button>`;
+  }).join('');
+
+  const barW = 16, gap = 4, chartH = 62, baseY = 68;
+  let peakVal = -1, peakHour = '';
+  values.forEach((v,i)=>{ if (v > peakVal){ peakVal = v; peakHour = hours[i]; } });
+  const avg = Math.round(values.reduce((a,b)=>a+b,0) / values.length);
+
+  const bars = values.map((v,i)=>{
+    const h = (v/100) * chartH;
+    const color = v >= 70 ? '#C0552F' : v >= 40 ? '#B8860B' : '#2E8B57';
+    const x = 4 + i*(barW+gap);
+    return `<rect x="${x}" y="${baseY-h}" width="${barW}" height="${Math.max(h,1.5)}" rx="3" fill="${color}">
+        <title>${day} ${hours[i]}: ${v}% of courts in use that hour</title>
+      </rect>`;
+  }).join('');
+  const labels = values.map((v,i)=>{
+    if (i % 2 !== 0) return '';
+    const x = 4 + i*(barW+gap) + barW/2;
+    return `<text x="${x}" y="${baseY+12}" text-anchor="middle" font-size="8.5" fill="#5B6660" font-family="JetBrains Mono, monospace">${hours[i]}</text>`;
+  }).join('');
+  const totalW = 4 + values.length*(barW+gap);
+
+  return `<div class="busy-section">
+    <div class="sf-label">Busiest times this week <span class="sf-optional">(${usage.samples}+ sessions logged)</span></div>
+    <div class="day-tabs">${dayTabs}</div>
+    <svg viewBox="0 0 ${totalW} 84" width="100%" height="96">${bars}${labels}</svg>
+    <div class="busy-caption"><b>${day}</b> peak: <b>${peakHour}</b> at ${peakVal}% of courts in use · day average ${avg}%. 100% means every court is full that whole hour; 50% means about half are, on average. Hover a bar for its exact hour.</div>
+  </div>`;
+}
+function selectBusyDay(locId, day){
+  selectedBusyDay[locId] = day;
+  renderPanel();
+}
+function startFormHtml(loc, court, draft){
+  const durations = [30, 60, 90];
+  const durBtns = durations.map(d=>{
+    const label = d===30 ? '30 min' : d===60 ? '1 hr' : '1.5 hr';
+    const active = draft.duration===d ? 'active' : '';
+    return `<button class="dur-btn ${active}" onclick="setDraftDuration('${loc.id}','${court.id}',${d})">${label}</button>`;
+  }).join('');
+  const partnerInputs = draft.partners.map((p, idx)=>`
+    <div class="partner-row">
+      <input type="text" placeholder="Partner ${idx+1} name" value="${p.replace(/"/g,'&quot;')}"
+        oninput="updateDraftPartner('${loc.id}','${court.id}',${idx},this.value)">
+      ${draft.partners.length>1 ? `<button class="x-btn" onclick="removeDraftPartner('${loc.id}','${court.id}',${idx})">✕</button>` : ''}
+    </div>`).join('');
+  return `<div class="start-form">
+    <div class="sf-label">How long? <span class="sf-optional">(max 1.5 hr)</span></div>
+    <div class="dur-group">${durBtns}</div>
+    <div class="sf-label">Playing partner(s) <span class="sf-optional">— required</span></div>
+    ${partnerInputs}
+    ${draft.partners.length<3 ? `<button class="add-partner" onclick="addDraftPartner('${loc.id}','${court.id}')">+ Add partner</button>` : ''}
+    <div class="ct-actions">
+      <button class="btn primary" onclick="confirmStart('${loc.id}','${court.id}')">Start playing</button>
+      <button class="btn ghost" onclick="toggleStartForm('${loc.id}','${court.id}')">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function courtRowHtml(loc, court, showActions){
+  const key = `${loc.id}:${court.id}`;
+  const canStart = !!showActions && isVerified(loc.id, court.id);
+  const isMine = !!(myActiveSession && myActiveSession.locId === loc.id && myActiveSession.courtId === court.id);
+  const canManage = canStart || isMine;
+  let pill, sub, body;
+
+  if (court.status === 'closed'){
+    pill = `<span class="status-pill closed"><span class="dot"></span>Closed</span>`;
+    sub = court.closeReason ? `Closed — ${court.closeReason}` : 'Closed for maintenance';
+    body = '';
+  } else if (court.status === 'available'){
+    pill = `<span class="status-pill available"><span class="dot"></span>Available</span>`;
+    sub = 'Open now';
+    if (!canStart){
+      body = '';
+    } else {
+      const draft = drafts[key];
+      body = (draft && draft.open)
+        ? startFormHtml(loc, court, draft)
+        : `<div class="ct-actions"><button class="btn primary" onclick="toggleStartForm('${loc.id}','${court.id}')">I'm playing</button></div>`;
+    }
+  } else {
+    const session = court.session;
+    const expired = !!(session && session.expired);
+    pill = `<span class="status-pill inuse">${clockIcon('#C0552F')}${expired ? "Time's up" : 'In use'}</span>`;
+    const remaining = session ? session.endsAt - Date.now() : 0;
+    sub = expired
+      ? 'Session ended — court not released yet'
+      : `<span id="timer-${loc.id}-${court.id}">${fmtClock(remaining)}</span> remaining`;
+    const players = session ? session.partners.join(', ') : 'Unknown';
+
+    let actions = '';
+    if (canManage){
+      actions = expired
+        ? `<div class="ct-actions">
+            <button class="btn primary" onclick="addTime('${loc.id}','${court.id}')">+30 min</button>
+            <button class="btn ghost" onclick="endSession('${loc.id}','${court.id}')">Mark free</button>
+          </div>`
+        : `<div class="ct-actions"><button class="btn ghost" onclick="endSession('${loc.id}','${court.id}')">End early</button></div>`;
+    }
+    body = `<div class="players-line">Playing: ${players}</div>${actions}`;
+  }
+
+  let adminRow = '';
+  if (isAdmin){
+    const closeBtn = court.status === 'closed'
+      ? `<button class="qr-btn" onclick="reopenCourt('${loc.id}','${court.id}')">Reopen</button>`
+      : `<button class="qr-btn" onclick="closeCourtForMaintenance('${loc.id}','${court.id}')">Close</button>`;
+    adminRow = `<div class="admin-row">
+      ${closeBtn}
+      <button class="qr-btn" onclick="showQr('${loc.id}')">QR code</button>
+      <button class="del-btn" title="Delete court" onclick="deleteCourt('${loc.id}','${court.id}')">🗑</button>
+    </div>`;
+  }
+
+  return `<div class="court-row">
+    <div class="court-row-top"><span class="ct-name">${court.name}</span>${pill}</div>
+    <div class="ct-sub">${sub}</div>
+    ${body}
+    ${adminRow}
+  </div>`;
+}
+
+function queueSectionHtml(loc, showActions){
+  const s = locStats(loc);
+  const inQueue = myActiveQueue && myActiveQueue.locId === loc.id;
+  const queuedElsewhere = myActiveQueue && myActiveQueue.locId !== loc.id;
+  const verifiedHere = isVerifiedAtLocation(loc.id);
+  const canStart = !!showActions;
+
+  let action = '';
+  if (inQueue){
+    action = `<button class="btn ghost" onclick="leaveLocationQueue('${loc.id}')">Leave queue</button>`;
+  } else if (!canStart){
+    action = '';
+  } else if (queuedElsewhere){
+    action = `<button class="btn ghost" disabled title="Leave your current queue first">Queued elsewhere</button>`;
+  } else if (verifiedHere){
+    action = `<button class="btn warn" onclick="joinLocationQueue('${loc.id}')">Join queue</button>`;
+  }
+
+  const avatars = loc.queue.length
+    ? `<div class="avatar-stack" style="margin-top:10px;">${loc.queue.slice(0,6).map(q=>`<div class="avatar">${q.name.slice(0,2)}</div>`).join('')}</div>`
+    : '';
+
+  return `<div class="queue-section">
+    <div class="loc-card-quick" style="padding:0 0 12px;border:none;">
+      <div class="card-avail">
+        <span class="avail-fraction">${s.available}/${s.total - s.closed}</span>
+        <span class="avail-label">Available</span>
+      </div>
+      ${loc.queue.length > 0
+        ? `<div class="card-waiting-tag">⏳ ${loc.queue.length} waiting</div>`
+        : `<div class="card-waiting-tag none">No one waiting</div>`}
+    </div>
+    ${avatars}
+    ${action ? `<div class="ct-actions" style="margin-top:10px;">${action}</div>` : ''}
+  </div>`;
+}
+
+function editFormHtml(loc){
+  return `<div id="panel-head">
+    <button id="panel-close" onclick="closePanel()">✕</button>
+    <div class="sf-label">Edit location</div>
+    <input id="edit-name" class="field" type="text" value="${loc.name.replace(/"/g,'&quot;')}">
+    <select id="edit-sport" class="field">
+      <option value="tennis" ${loc.sport==='tennis'?'selected':''}>🎾 Tennis</option>
+      <option value="pickleball" ${loc.sport==='pickleball'?'selected':''}>🏓 Pickleball</option>
+    </select>
+    <select id="edit-type" class="field">
+      ${Object.keys(TYPE_LABELS).map(t=>`<option value="${t}" ${t===loc.type?'selected':''}>${TYPE_LABELS[t]}</option>`).join('')}
+    </select>
+    <input id="edit-address" class="field" type="text" value="${loc.address.replace(/"/g,'&quot;')}">
+    <input id="edit-city" class="field" type="text" value="${(loc.city||'').replace(/"/g,'&quot;')}" placeholder="City">
+    <input id="edit-hours" class="field" type="text" value="${formatHours(loc.hours).replace(/"/g,'&quot;')}" placeholder="Hours (e.g. 7:00 AM – 9:00 PM)">
+    <div class="sf-label">Amenities</div>
+    <label class="check-label"><input id="edit-lights" type="checkbox" ${loc.amenities.lights?'checked':''}> Lights</label>
+    <label class="check-label"><input id="edit-parking" type="checkbox" ${loc.amenities.parking?'checked':''}> Parking</label>
+    <label class="check-label"><input id="edit-restrooms" type="checkbox" ${loc.amenities.restrooms?'checked':''}> Restrooms</label>
+    <label class="check-label" style="margin-bottom:10px;"><input id="edit-water" type="checkbox" ${loc.amenities.water?'checked':''}> Water fountain</label>
+    <div class="ct-actions">
+      <button class="btn primary" onclick="saveLocationEdits('${loc.id}')">Save changes</button>
+      <button class="btn ghost" onclick="toggleEditLocation('${loc.id}')">Cancel</button>
+    </div>
+    <button class="del-btn" style="margin-top:10px;width:100%;padding:10px;" onclick="deleteLocation('${loc.id}')">🗑 Delete this location</button>
+  </div>`;
+}
+
+async function deleteLocation(locId){
+  const loc = LOCATIONS.find(l=>l.id===locId);
+  if (!loc) return;
+  showConfirmModal(`Delete "${loc.name}"? This removes it from the app for everyone. This cannot be undone.`, async ()=>{
+    try {
+      const res = await fetch(`${API_BASE}/v1/admin/locations/${locId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Server rejected the request');
+
+      LOCATIONS = LOCATIONS.filter(l=>l.id!==locId);
+      editingLoc = null;
+      closePanel();
+      refreshAll();
+      showToast(`${loc.name} removed.`);
+      loadKnownCities(); // drop the city from search if that was its last location
+    } catch(err) {
+      console.error('deleteLocation error:', err);
+      showToast('Could not delete the location — check your connection and try again.');
+    }
+  });
+}
+
+function renderPanel(){
+  const loc = LOCATIONS.find(l=>l.id===activeLocId);
+  if (!loc) return;
+
+  if (isAdmin && editingLoc === loc.id){
+    document.getElementById('panel-scroll').innerHTML = editFormHtml(loc);
+    return;
+  }
+
+  const s = locStats(loc);
+  const closedBanner = s.closed > 0
+    ? `<div class="closed-banner">⚠ ${s.closed} court${s.closed>1?'s':''} closed for maintenance</div>`
+    : '';
+
+  const html = `
+    <div id="panel-head">
+      <button id="panel-close" onclick="closePanel()">✕</button>
+      <span class="type-pill ${loc.type}">${SPORT_ICONS[loc.sport]} ${TYPE_LABELS[loc.type]}</span>
+      <h2>${loc.name}</h2>
+      ${isAdmin ? `<button class="edit-pencil" onclick="toggleEditLocation('${loc.id}')">✎ Edit</button>` : ''}
+      ${starsHtml(loc.rating, loc.reviews)}
+      <div class="addr">${loc.address} · ${loc.setting} · ${loc.surface}</div>
+      <div class="dist-tag">${distanceMiles(ORIGIN.lat,ORIGIN.lng,loc.lat,loc.lng).toFixed(1)} mi from you</div>
+    </div>
+    ${amenitiesHtml(loc)}
+    ${closedBanner}
+    <div id="panel-summary">
+      <div class="hours-row">🕒 ${formatHours(loc.hours)}</div>
+    </div>
+    ${queueSectionHtml(loc, false)}
+    ${busynessChartHtml(loc)}
+    ${loc.courts.map(c=>courtRowHtml(loc,c, false)).join('')}
+    ${isAdmin ? `<div class="add-court-row"><button class="add-partner" onclick="addCourtToLocation('${loc.id}')">+ Add court to this location</button></div>` : ''}
+  `;
+  document.getElementById('panel-scroll').innerHTML = html;
+}
+
+function openPanel(locId){
+  activeLocId = locId;
+  editingLoc = null;
+  renderPanel();
+  document.getElementById('panel').classList.add('open');
+  const loc = LOCATIONS.find(l=>l.id===locId);
+  if (loc) map.panTo([loc.lat, loc.lng], { animate:true });
+  renderMarkers();
+  if (currentView === 'card') renderCardView();
+}
+function closePanel(){
+  document.getElementById('panel').classList.remove('open');
+  activeLocId = null;
+  editingLoc = null;
+  renderMarkers();
+  if (currentView === 'card') renderCardView();
+}
+
+// ---------------------------------------------------------------
+// QR landing page — the focused, single-court screen you land on
+// after scanning the QR code printed on that court's door/gate
+// ---------------------------------------------------------------
+function showQrLanding(locId){
+  verifiedCourts.add(locId);
+  qrLandingCourt = { locId };
+  renderQrLandingContent();
+  document.getElementById('qr-landing').classList.add('open');
+}
+
+function closeQrLanding(){
+  document.getElementById('qr-landing').classList.remove('open');
+  const locId = qrLandingCourt ? qrLandingCourt.locId : null;
+  qrLandingCourt = null;
+  if (locId) openPanel(locId);
+}
+
+function renderQrLandingContent(){
+  if (!qrLandingCourt) return;
+  const locId = qrLandingCourt.locId;
+  const loc = LOCATIONS.find(l=>l.id===locId);
+  const el = document.getElementById('qr-landing-content');
+  if (!loc){ el.innerHTML = '<p>This location could not be found.</p>'; return; }
+
+  const s = locStats(loc);
+
+  el.innerHTML = `
+    <div class="qr-verified-banner">✓ Checked in at ${loc.name} via QR code</div>
+    <div class="qr-hero">
+      ${heroCourtSvg(loc.sport, TYPE_COLORS[loc.type])}
+      <div class="qr-hero-text">
+        <span class="type-pill ${loc.type}">${SPORT_ICONS[loc.sport]} ${TYPE_LABELS[loc.type]}</span>
+        <h1>${loc.name}</h1>
+        <div class="qr-landing-loc">${loc.address}</div>
+      </div>
+    </div>
+    <div class="qr-meta-row">
+      ${starsHtml(loc.rating, loc.reviews)}
+      <div class="hours-row">🕒 ${formatHours(loc.hours)}</div>
+    </div>
+    ${amenitiesHtml(loc)}
+    <div class="sf-label" style="padding:12px 0 8px;">Select a court</div>
+    ${loc.courts.map(c=>courtRowHtml(loc,c,true)).join('')}
+    ${queueSectionHtml(loc, true)}
+  `;
+}
+
+function renderAllViews(){
+  if (activeLocId) renderPanel();
+  if (qrLandingCourt) renderQrLandingContent();
+}
+function refreshAll(){
+  renderMarkers();
+  updateSportCounts();
+  renderAllViews();
+  if (currentView === 'card') renderCardView();
+}
+
+// ---------------------------------------------------------------
+// Live countdowns
+// ---------------------------------------------------------------
+function tick(){
+  let changed = false;
+  LOCATIONS.forEach(loc=>{
+    loc.courts.forEach(court=>{
+      if (court.status === 'inuse' && court.session && !court.session.expired){
+        const remaining = court.session.endsAt - Date.now();
+        if (remaining <= 0){
+          court.session.expired = true;
+          changed = true;
+        } else {
+          const el = document.getElementById(`timer-${loc.id}-${court.id}`);
+          if (el) el.textContent = fmtClock(remaining);
+        }
+      }
+    });
+  });
+  if (changed) refreshAll();
+}
+setInterval(tick, 1000);
+
+// ---------------------------------------------------------------
+// Radius slider
+// ---------------------------------------------------------------
+const slider = document.getElementById('radius-slider');
+const radiusValueLabel = document.getElementById('radius-value');
+function updateRadiusUI(){
+  const pct = ((radiusMiles - slider.min) / (slider.max - slider.min)) * 100;
+  slider.style.setProperty('--fill', pct + '%');
+  radiusValueLabel.textContent = radiusMiles.toFixed(1) + ' mi';
+  radiusCircle.setLatLng([ORIGIN.lat, ORIGIN.lng]);
+  radiusCircle.setRadius(radiusMiles * 1609.34);
+  youMarker.setLatLng([ORIGIN.lat, ORIGIN.lng]);
+}
+slider.addEventListener('input', (e)=>{
+  radiusMiles = parseFloat(e.target.value);
+  updateRadiusUI();
+  if (activeLocId){
+    const loc = LOCATIONS.find(l=>l.id===activeLocId);
+    if (loc && !isVisible(loc)) closePanel();
+  }
+  refreshAll();
+});
+slider.addEventListener('change', ()=>{
+  loadLocations();
+});
+
+let watchId = null; // non-null while live tracking is on
+
+function useMyLocation(){
+  const btn = document.getElementById('locate-btn');
+  if (!navigator.geolocation){ showToast('Geolocation is not available in this browser.'); return; }
+
+  if (watchId !== null){
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    btn.classList.remove('active');
+    showToast('Live location turned off.');
+    return;
+  }
+
+  btn.classList.add('active');
+  let hasCenteredOnce = false;
+
+  watchId = navigator.geolocation.watchPosition(
+    (pos)=>{
+      ORIGIN = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      if (!hasCenteredOnce){
+        map.panTo([ORIGIN.lat, ORIGIN.lng]);
+        hasCenteredOnce = true;
+        loadLocations();
+      } else {
+        updateRadiusUI();
+        refreshAll();
+      }
+    },
+    ()=>{
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+      btn.classList.remove('active');
+      showToast("Couldn't get your location — staying with the default map center.");
+    },
+    { enableHighAccuracy: true, maximumAge: 5000 }
+  );
+}
+
+updateRadiusUI();
+loadLocations();
+loadKnownCities();
+connectSocket();
+if (new URLSearchParams(location.search).get('admin') === '1'){
+  document.getElementById('admin-btn').style.display = 'inline-block';
+}
+
+// ---------------------------------------------------------------
+// View menu dropdown
+// ---------------------------------------------------------------
+let currentView = 'map';
+let currentSort = 'distance';
+let viewMenuOpen = false;
+
+function toggleViewMenu(){
+  viewMenuOpen = !viewMenuOpen;
+  document.getElementById('view-menu-dropdown').classList.toggle('open', viewMenuOpen);
+  if (viewMenuOpen){
+    const input = document.getElementById('city-search-input');
+    if (input){ input.value = ''; filterCitySuggestions(''); }
+  }
+}
+document.addEventListener('click', (e)=>{
+  const wrap = document.getElementById('view-menu-wrap');
+  if (wrap && !wrap.contains(e.target) && viewMenuOpen){
+    viewMenuOpen = false;
+    document.getElementById('view-menu-dropdown').classList.remove('open');
+  }
+});
+
+// ---------------------------------------------------------------
+// City search — fetched once from a dedicated endpoint that isn't limited
+// by distance, unlike LOCATIONS (which only ever holds whatever's within
+// the current radius fetch). Without this, a city like Irvine would drop
+// out of search results the moment you're viewing courts somewhere else,
+// even though it genuinely has courts saved in the database.
+// ---------------------------------------------------------------
+let KNOWN_CITIES = [];
+async function loadKnownCities(){
+  try {
+    const res = await fetch(`${API_BASE}/v1/locations/cities`);
+    if (res.ok) KNOWN_CITIES = await res.json();
+    updateCurrentCityLabel();
+  } catch(err) {
+    console.error('loadKnownCities error:', err);
+  }
+}
+function getKnownCities(){
+  return KNOWN_CITIES;
+}
+
+function nearestKnownCity(){
+  const cities = getKnownCities();
+  if (!cities.length) return null;
+  let best = cities[0], bestDist = Infinity;
+  cities.forEach(c=>{
+    const d = Math.hypot(c.lat - ORIGIN.lat, c.lng - ORIGIN.lng);
+    if (d < bestDist){ bestDist = d; best = c; }
+  });
+  return best;
+}
+
+function updateCurrentCityLabel(){
+  const city = nearestKnownCity();
+  if (!city) return;
+  document.getElementById('brand-tag').textContent = city.name;
+}
+
+function filterCitySuggestions(query){
+  const box = document.getElementById('city-suggestions');
+  const q = query.trim().toLowerCase();
+
+  if (!q){
+    box.innerHTML = '';
+    return;
+  }
+
+  const matches = getKnownCities().filter(c => c.name.toLowerCase().includes(q));
+  if (!matches.length){
+    box.innerHTML = `<div class="city-suggestion-empty">No supported city matches "${query}" yet — only cities with onboarded courts are searchable.</div>`;
+    return;
+  }
+  box.innerHTML = matches.map(c =>
+    `<button class="city-suggestion" onclick="selectCity('${c.name.replace(/'/g,"\\'")}')"><span class="cs-pin">📍</span><span class="cs-name">${c.name}</span><span class="cs-region">${c.count} court${c.count>1?'s':''}</span></button>`
+  ).join('');
+}
+
+function trySelectTypedCity(){
+  const val = document.getElementById('city-search-input').value.trim();
+  const match = getKnownCities().find(c => c.name.toLowerCase() === val.toLowerCase());
+  if (match){ selectCity(match.name); }
+  else { showToast(`"${val}" isn't a supported city yet.`); }
+}
+
+function selectCity(name){
+  const city = getKnownCities().find(c => c.name === name);
+  if (!city) return;
+  viewMenuOpen = false;
+  document.getElementById('view-menu-dropdown').classList.remove('open');
+  if (currentView === 'card') switchView('map');
+  map.flyTo([city.lat, city.lng], 13, { duration: 0.9 });
+  showToast(`Showing courts in ${city.name}`);
+
+  ORIGIN = { lat: city.lat, lng: city.lng };
+  loadLocations();
+}
+
+function switchView(v){
+  currentView = v;
+  viewMenuOpen = false;
+  document.getElementById('view-menu-dropdown').classList.remove('open');
+  document.getElementById('vd-map-btn').classList.toggle('active', v==='map');
+  document.getElementById('vd-card-btn').classList.toggle('active', v==='card');
+
+  const inCard = v === 'card';
+
+  document.getElementById('radius-map-content').style.display = inCard ? 'none' : 'flex';
+  document.getElementById('radius-card-content').style.display = inCard ? 'flex' : 'none';
+
+  if (inCard){
+    document.getElementById('card-view').classList.add('open');
+    renderCardView();
+  } else {
+    document.getElementById('card-view').classList.remove('open');
+  }
+}
+
+function setSort(s){
+  currentSort = s;
+  ['distance','available','rating'].forEach(k=>{
+    const pill = document.getElementById(`sp-${k}`);
+    if (pill) pill.classList.toggle('active', k===s);
+  });
+  renderCardView();
+}
+
+// ---------------------------------------------------------------
+// Card view — each visible location gets a full card
+// ---------------------------------------------------------------
+function renderCardView(){
+  const locs = LOCATIONS.filter(isVisible);
+  if (currentSort === 'distance'){
+    locs.sort((a,b)=>distanceMiles(ORIGIN.lat,ORIGIN.lng,a.lat,a.lng)-distanceMiles(ORIGIN.lat,ORIGIN.lng,b.lat,b.lng));
+  } else if (currentSort === 'available'){
+    locs.sort((a,b)=>locStats(b).available - locStats(a).available);
+  } else if (currentSort === 'rating'){
+    locs.sort((a,b)=>(b.rating||0)-(a.rating||0));
+  }
+
+  if (!locs.length){
+    document.getElementById('card-view-inner').innerHTML = `<div style="text-align:center;color:var(--ink-soft);padding:60px 20px;font-size:14px;">No locations within your radius. Try sliding the distance filter wider.</div>`;
+    return;
+  }
+
+  const cards = locs.map(loc=>{
+    const s = locStats(loc);
+    const dist = distanceMiles(ORIGIN.lat,ORIGIN.lng,loc.lat,loc.lng).toFixed(1);
+    const ratingStars = loc.reviews ? `<span style="color:#E0A526">★</span> ${loc.rating.toFixed(1)} <span style="color:var(--ink-soft);font-weight:400;">(${loc.reviews})</span>` : '<span style="color:var(--ink-soft)">No ratings</span>';
+    const amenityIcons = [
+      loc.amenities.lights ? '☀' : '',
+      loc.amenities.parking ? '🅿' : '',
+      loc.amenities.restrooms ? '🚻' : '',
+      loc.amenities.water ? '💧' : '',
+    ].filter(Boolean).join(' ');
+
+    return `<div class="loc-card${loc.id===activeLocId ? ' selected' : ''}" onclick="openPanel('${loc.id}')">
+      <div class="loc-card-head">
+        <div class="loc-card-icon">${heroCourtSvg(loc.sport, TYPE_COLORS[loc.type])}</div>
+        <div class="loc-card-meta">
+          <h3>${loc.name}</h3>
+          <div class="card-addr">${loc.address}</div>
+          <div class="card-pills">
+            <span class="card-pill ${loc.type}">${TYPE_LABELS[loc.type]}</span>
+            <span class="card-pill ${loc.sport}">${loc.sport === 'tennis' ? 'Tennis' : 'Pickleball'}</span>
+          </div>
+        </div>
+      </div>
+      <div class="loc-card-quick">
+        <div class="card-avail">
+          <span class="avail-fraction">${s.available}/${s.total - s.closed}</span>
+          <span class="avail-label">Available</span>
+        </div>
+        ${s.queue > 0
+          ? `<div class="card-waiting-tag">⏳ ${s.queue} waiting</div>`
+          : `<div class="card-waiting-tag none">No one waiting</div>`}
+      </div>
+      <div class="loc-card-foot">
+        <div class="card-dist">📍 ${dist} mi</div>
+        <div class="card-hours">🕒 ${formatHours(loc.hours)}</div>
+        <div class="card-rating">${ratingStars}</div>
+      </div>
+      <div style="padding:0 18px 14px;display:flex;justify-content:space-between;align-items:center;">
+        <div class="card-amenity-icons" title="Amenities">${amenityIcons || '<span style="font-size:11px;color:var(--ink-soft)">No amenities listed</span>'}</div>
+        <button class="btn primary" style="flex:none;width:auto;padding:8px 14px;font-size:12.5px;border-radius:9px;" onclick="event.stopPropagation();openPanel('${loc.id}')">View courts →</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('card-view-inner').innerHTML = `<div class="card-grid">${cards}</div>`;
+}
+
+// ---------------------------------------------------------------
+// QR deep link — opening ?loc=...&court=... is what happens when you
+// scan the QR code printed on a court's door/gate. It unlocks that
+// specific court and drops you straight onto its focused action page.
+// ---------------------------------------------------------------
+const deepLinkParams = new URLSearchParams(location.search);
+const deepLinkLoc = deepLinkParams.get('loc');
+const deepLinkCourt = deepLinkParams.get('court');
+
+function handleDeepLink(){
+  if (!deepLinkLoc) return;
+  const loc = LOCATIONS.find(l=>l.id===deepLinkLoc);
+  if (!loc) return;
+  showQrLanding(deepLinkLoc);
+}
+
+</script>
+</body>
+</html>
