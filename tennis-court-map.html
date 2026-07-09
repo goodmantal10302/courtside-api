@@ -1939,49 +1939,82 @@ slider.addEventListener('change', ()=>{
   loadLocations();
 });
 
-let watchId = null; // non-null while live tracking is on
+let watchId = null; // non-null once live tracking is actually running
 
-function useMyLocation(){
+function beginWatchingLocation(onFirstFix, onError){
   const btn = document.getElementById('locate-btn');
-  if (!navigator.geolocation){ showToast('Geolocation is not available in this browser.'); return; }
-
-  if (watchId !== null){
-    navigator.geolocation.clearWatch(watchId);
-    watchId = null;
-    btn.classList.remove('active');
-    showToast('Live location turned off.');
-    return;
-  }
-
-  btn.classList.add('active');
-  let hasCenteredOnce = false;
+  let settled = false;
 
   watchId = navigator.geolocation.watchPosition(
     (pos)=>{
       ORIGIN = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      if (!hasCenteredOnce){
-        map.panTo([ORIGIN.lat, ORIGIN.lng]);
-        hasCenteredOnce = true;
-        loadLocations();
+      btn.classList.add('active');
+      if (!settled){
+        settled = true;
+        onFirstFix();
       } else {
         updateRadiusUI();
         refreshAll();
       }
     },
     ()=>{
-      navigator.geolocation.clearWatch(watchId);
-      watchId = null;
-      btn.classList.remove('active');
-      showToast("Couldn't get your location — staying with the default map center.");
+      if (!settled){
+        settled = true;
+        watchId = null;
+        btn.classList.remove('active');
+        onError();
+      }
     },
-    { enableHighAccuracy: true, maximumAge: 5000 }
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 8000 }
   );
 }
 
-updateRadiusUI();
-loadLocations();
-loadKnownCities();
-connectSocket();
+function useMyLocation(){
+  if (watchId !== null){
+    map.panTo([ORIGIN.lat, ORIGIN.lng]);
+    return;
+  }
+  if (!navigator.geolocation){ showToast('Geolocation is not available in this browser.'); return; }
+
+  beginWatchingLocation(
+    ()=>{
+      map.panTo([ORIGIN.lat, ORIGIN.lng]);
+      loadLocations();
+    },
+    ()=> showToast("Couldn't get your location — check your browser's location permission and try again.")
+  );
+}
+
+function initializeApp(){
+  let usedFallback = false;
+  function fallbackToDefault(){
+    if (usedFallback) return;
+    usedFallback = true;
+    loadLocations();
+    loadKnownCities();
+    connectSocket();
+  }
+
+  if (!navigator.geolocation){
+    fallbackToDefault();
+    return;
+  }
+
+  beginWatchingLocation(
+    ()=>{
+      usedFallback = true;
+      map.setView([ORIGIN.lat, ORIGIN.lng], 13.2);
+      loadLocations();
+      loadKnownCities();
+      connectSocket();
+    },
+    fallbackToDefault
+  );
+
+  setTimeout(fallbackToDefault, 8000);
+}
+
+initializeApp();
 if (new URLSearchParams(location.search).get('admin') === '1'){
   document.getElementById('admin-btn').style.display = 'inline-block';
 }
