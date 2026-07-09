@@ -138,4 +138,23 @@ router.delete('/courts/:id', async (req, res) => {
   }
 });
 
+// DELETE /v1/admin/locations/:id
+// Soft delete — flips active to false rather than removing the row, since
+// sessions/ratings reference this location and hard-deleting would either
+// orphan that history or fail on the foreign key. GET /v1/locations already
+// filters on active = true, so this makes the location disappear from the
+// app immediately without losing any past data.
+router.delete('/locations/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await db.query(`UPDATE locations SET active = false WHERE id = $1`, [id]);
+    res.json({ message: 'Location removed' });
+
+  } catch (err) {
+    console.error('DELETE /v1/admin/locations/:id error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
