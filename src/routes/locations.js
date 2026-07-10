@@ -31,7 +31,12 @@ router.get('/cities', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const { lat, lng, radius_miles = 10, sport, city } = req.query;
+    const { lat, lng, radius_miles = 10, north, south, east, west, sport, city } = req.query;
+    // A bounding box (the actual rectangle currently visible on the map)
+    // takes priority over the old circular radius when both are present —
+    // "search this area" sends a box; older/simpler calls can still just
+    // send lat/lng/radius_miles and get the previous circular behavior.
+    const useBbox = north !== undefined && south !== undefined && east !== undefined && west !== undefined;
 
     let whereClause = 'WHERE l.active = true';
     const params = [];
@@ -86,7 +91,14 @@ router.get('/', async (req, res) => {
         distanceMiles = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
       }
 
-      if (lat && lng && distanceMiles > parseFloat(radius_miles)) return null;
+      let withinArea = true;
+      if (useBbox) {
+        withinArea = loc.lat <= parseFloat(north) && loc.lat >= parseFloat(south)
+          && loc.lng <= parseFloat(east) && loc.lng >= parseFloat(west);
+      } else if (lat && lng) {
+        withinArea = distanceMiles <= parseFloat(radius_miles);
+      }
+      if (!withinArea) return null;
 
       return {
         ...loc,

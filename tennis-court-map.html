@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>CourtSide — Live Tennis Court Map</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -569,16 +570,18 @@ function handleQueueUpdate(payload){
 
 async function loadLocations(){
   try {
+    const bounds = map.getBounds();
     const res = await fetch(
-      `${API_BASE}/v1/locations?lat=${ORIGIN.lat}&lng=${ORIGIN.lng}&radius_miles=${radiusMiles}`
+      `${API_BASE}/v1/locations?lat=${ORIGIN.lat}&lng=${ORIGIN.lng}` +
+      `&north=${bounds.getNorth()}&south=${bounds.getSouth()}` +
+      `&east=${bounds.getEast()}&west=${bounds.getWest()}`
     );
     if (!res.ok) throw new Error('API error');
     LOCATIONS = await res.json();
     renderMarkers();
     updateSportCounts();
     updateCurrentCityLabel();
-    lastSearchOrigin = { lat: ORIGIN.lat, lng: ORIGIN.lng };
-    lastSearchRadius = radiusMiles;
+    lastSearchBounds = bounds;
     hideSearchAreaButton();
     await restoreMyActivity(); // ← reattach any session/queue this device already holds
     handleDeepLink(); // ← add this line
@@ -651,10 +654,9 @@ L.control.zoom({ position:'bottomright' }).addTo(map);
 
 let ORIGIN = { lat: 43.8635, lng: -79.4250 };
 let radiusMiles = 3;
-// Where/how wide the most recent actual search was — used to decide when
-// you've panned/zoomed far enough away to need a new search.
-let lastSearchOrigin = { lat: ORIGIN.lat, lng: ORIGIN.lng };
-let lastSearchRadius = radiusMiles;
+// The exact map area covered by the most recent real search — used to
+// decide when you've panned/zoomed somewhere not yet loaded.
+let lastSearchBounds = null;
 
 
 
@@ -676,7 +678,7 @@ function distanceMiles(lat1, lng1, lat2, lng2){
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-function isWithinRadius(loc){ return distanceMiles(ORIGIN.lat, ORIGIN.lng, loc.lat, loc.lng) <= radiusMiles; }
+function isWithinRadius(loc){ return map.getBounds().contains([loc.lat, loc.lng]); }
 function isVisible(loc){ return isWithinRadius(loc) && activeSports[loc.sport]; }
 
 function locStats(loc){
@@ -1922,35 +1924,24 @@ function updateRadiusUI(){
   radiusCircle.setRadius(radiusMiles * 1609.34);
 }
 
-function computeVisibleRadiusMiles(){
-  const bounds = map.getBounds();
-  const center = map.getCenter();
-  const ne = bounds.getNorthEast();
-  return distanceMiles(center.lat, center.lng, ne.lat, ne.lng);
-}
-
 function showSearchAreaButton(){ document.getElementById('search-area-btn').style.display = 'inline-block'; }
 function hideSearchAreaButton(){ document.getElementById('search-area-btn').style.display = 'none'; }
 
 function maybeShowSearchAreaButton(){
-  const center = map.getCenter();
-  const movedMiles = distanceMiles(center.lat, center.lng, lastSearchOrigin.lat, lastSearchOrigin.lng);
-  const visibleNow = computeVisibleRadiusMiles();
-  const movedFar = movedMiles > lastSearchRadius * 0.4;
-  const zoomedOutPastLoaded = visibleNow > lastSearchRadius * 1.15;
-  if (movedFar || zoomedOutPastLoaded){
+  if (!lastSearchBounds || !lastSearchBounds.contains(map.getBounds())){
     showSearchAreaButton();
   } else {
     hideSearchAreaButton();
   }
 }
-map.on('moveend zoomend', maybeShowSearchAreaButton);
+map.on('moveend zoomend', ()=>{
+  maybeShowSearchAreaButton();
+  refreshAll();
+});
 
 function searchThisArea(){
   const center = map.getCenter();
   ORIGIN = { lat: center.lat, lng: center.lng };
-  radiusMiles = Math.min(25, Math.max(0.5, computeVisibleRadiusMiles()));
-  updateRadiusUI();
   if (activeLocId){
     const loc = LOCATIONS.find(l=>l.id===activeLocId);
     if (loc && !isVisible(loc)) closePanel();
@@ -1991,9 +1982,9 @@ function beginWatchingLocation(onFirstFix, onError){
 function useMyLocation(){
   if (watchId !== null && myRealLocation){
     ORIGIN = { lat: myRealLocation.lat, lng: myRealLocation.lng };
-    map.panTo([ORIGIN.lat, ORIGIN.lng]);
     updateRadiusUI();
-    loadLocations();
+    map.once('moveend', loadLocations);
+    map.panTo([ORIGIN.lat, ORIGIN.lng]);
     return;
   }
   if (!navigator.geolocation){ showToast('Geolocation is not available in this browser.'); return; }
@@ -2001,8 +1992,8 @@ function useMyLocation(){
   beginWatchingLocation(
     ()=>{
       ORIGIN = { lat: myRealLocation.lat, lng: myRealLocation.lng };
+      map.once('moveend', loadLocations);
       map.panTo([ORIGIN.lat, ORIGIN.lng]);
-      loadLocations();
     },
     ()=> showToast("Couldn't get your location — check your browser's location permission and try again.")
   );
@@ -2027,8 +2018,8 @@ function initializeApp(){
     ()=>{
       usedFallback = true;
       ORIGIN = { lat: myRealLocation.lat, lng: myRealLocation.lng };
+      map.once('moveend', loadLocations);
       map.setView([ORIGIN.lat, ORIGIN.lng], 13.2);
-      loadLocations();
       loadKnownCities();
       connectSocket();
     },
@@ -2136,11 +2127,11 @@ function selectCity(name){
   viewMenuOpen = false;
   document.getElementById('view-menu-dropdown').classList.remove('open');
   if (currentView === 'card') switchView('map');
-  map.flyTo([city.lat, city.lng], 13, { duration: 0.9 });
   showToast(`Showing courts in ${city.name}`);
 
   ORIGIN = { lat: city.lat, lng: city.lng };
-  loadLocations();
+  map.once('moveend', loadLocations);
+  map.flyTo([city.lat, city.lng], 13, { duration: 0.9 });
 }
 
 function switchView(v){
