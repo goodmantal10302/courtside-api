@@ -82,6 +82,11 @@
     width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid var(--court);cursor:pointer;
   }
   /* ---------- Floating map controls (locate + search-this-area) ---------- */
+  /* Pull Leaflet's default zoom control up closer to our floating
+     locate/search-this-area buttons, instead of sitting alone in the
+     far corner with a big empty gap between them. */
+  .leaflet-control-zoom{ margin-bottom:50px !important; }
+
   #map-controls{
     position:absolute;right:16px;bottom:150px;z-index:1000;
     display:flex;flex-direction:column;align-items:flex-end;gap:10px;
@@ -2255,19 +2260,44 @@ function renderCardView(){
 // QR deep link — opening ?loc=...&court=... is what happens when you
 // scan the QR code printed on a court's door/gate. It unlocks that
 // specific court and drops you straight onto its focused action page.
+//
+// This should only ever fire from an actual fresh scan, or because
+// you're genuinely still playing/queued somewhere — NOT on every plain
+// reload just because the URL still happens to contain ?loc=... from
+// an earlier scan. The URL gets cleaned up right after being used once
+// so a later reload doesn't replay it.
 // ---------------------------------------------------------------
 const deepLinkParams = new URLSearchParams(location.search);
 const deepLinkLoc = deepLinkParams.get('loc');
-const deepLinkCourt = deepLinkParams.get('court');
 
 let deepLinkHandled = false;
+
+function stripLocFromUrl(){
+  const url = new URL(location.href);
+  url.searchParams.delete('loc');
+  url.searchParams.delete('court');
+  history.replaceState(null, '', url.toString());
+}
+
 function handleDeepLink(){
-  if (deepLinkHandled || !deepLinkLoc) return;
-  const loc = LOCATIONS.find(l=>l.id===deepLinkLoc);
-  if (!loc) return;
-  deepLinkHandled = true;
-  // QR codes link to location — open the QR landing page for the whole location
-  showQrLanding(deepLinkLoc);
+  if (deepLinkHandled) return;
+
+  // A fresh scan takes priority — it's the clearest signal of intent.
+  if (deepLinkLoc && LOCATIONS.some(l=>l.id===deepLinkLoc)){
+    deepLinkHandled = true;
+    showQrLanding(deepLinkLoc);
+    stripLocFromUrl();
+    return;
+  }
+
+  // No fresh scan this load — but if you're still actively playing or
+  // waiting in a queue somewhere, a reload should still take you back
+  // to that court instead of dropping you on the plain map.
+  const stillActiveLocId = (myActiveSession && myActiveSession.locId) || (myActiveQueue && myActiveQueue.locId);
+  if (stillActiveLocId && LOCATIONS.some(l=>l.id===stillActiveLocId)){
+    deepLinkHandled = true;
+    showQrLanding(stillActiveLocId);
+  }
 }
 
 </script>
