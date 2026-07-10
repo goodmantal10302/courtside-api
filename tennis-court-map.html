@@ -2152,11 +2152,24 @@ function switchView(v){
 
   if (inCard){
     document.getElementById('card-view').classList.add('open');
+    adjustCardViewPadding();
     renderCardView();
   } else {
     document.getElementById('card-view').classList.remove('open');
   }
 }
+
+// The toolbar's actual height varies by screen width (it wraps onto more
+// rows on narrow phones) — measuring it directly instead of assuming a
+// fixed padding is what keeps the sort bar from overlapping the first card.
+function adjustCardViewPadding(){
+  const topbar = document.getElementById('topbar');
+  const cardView = document.getElementById('card-view');
+  cardView.style.paddingTop = (topbar.offsetHeight + 32) + 'px';
+}
+window.addEventListener('resize', ()=>{
+  if (currentView === 'card') adjustCardViewPadding();
+});
 
 function setSort(s){
   currentSort = s;
