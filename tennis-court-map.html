@@ -659,11 +659,6 @@ const youIcon = L.divIcon({
 });
 const youMarker = L.marker([ORIGIN.lat, ORIGIN.lng], { icon: youIcon, zIndexOffset: 1000 }).addTo(map);
 
-const radiusCircle = L.circle([ORIGIN.lat, ORIGIN.lng], {
-  radius: radiusMiles * 1609.34,
-  color: '#1F6E63', weight: 1.5, fillColor:'#1F6E63', fillOpacity:0.06, dashArray:'4 6'
-}).addTo(map);
-
 function distanceMiles(lat1, lng1, lat2, lng2){
   const R = 3958.8;
   const dLat = (lat2-lat1) * Math.PI/180;
@@ -1916,8 +1911,9 @@ function tick(){
 setInterval(tick, 1000);
 
 function updateRadiusUI(){
-  radiusCircle.setLatLng([ORIGIN.lat, ORIGIN.lng]);
-  radiusCircle.setRadius(radiusMiles * 1609.34);
+  // No-op now that the radius circle is gone — kept as a stub so the
+  // existing call sites (search-this-area, locate button) don't need
+  // to change.
 }
 
 function showSearchAreaButton(){ document.getElementById('search-area-btn').style.display = 'inline-block'; }
