@@ -410,13 +410,6 @@
       </div>
     </div>
 
-    <div id="legend" class="glass">
-      <div id="legend-map-content" style="display:flex;gap:12px;align-items:center;">
-        <div class="legend-item"><span class="legend-dot" style="background:var(--court)"></span>Public</div>
-        <div class="legend-item"><span class="legend-dot" style="background:var(--school)"></span>University/School</div>
-      </div>
-    </div>
-
     <div id="admin-bar" class="glass">
       <button id="admin-btn" onclick="toggleAdmin()">🛠 Admin</button>
       <button id="add-location-btn" onclick="startAddLocation()">+ Add Location</button>
@@ -431,7 +424,7 @@
     <div id="panel-scroll"></div>
   </div>
 
-  <div id="hint" class="glass">Scanning a court's QR code unlocks "I'm playing" and "End early" for that court. One shared queue waits for the next open court at each location, not a specific one. Admins can edit details, add courts, or close one for maintenance.</div>
+  <div id="hint" class="glass" style="display:none;">Scanning a court's QR code unlocks "I'm playing" and "End early" for that court. One shared queue waits for the next open court at each location, not a specific one. Admins can edit details, add courts, or close one for maintenance.</div>
 </div>
 
 <div id="qr-landing" class="qr-landing">
@@ -1819,6 +1812,7 @@ function openPanel(locId){
   editingLoc = null;
   renderPanel();
   document.getElementById('panel').classList.add('open');
+  document.getElementById('hint').style.display = 'block';
   const loc = LOCATIONS.find(l=>l.id===locId);
   if (loc) map.panTo([loc.lat, loc.lng], { animate:true });
   renderMarkers();
@@ -1826,6 +1820,7 @@ function openPanel(locId){
 }
 function closePanel(){
   document.getElementById('panel').classList.remove('open');
+  document.getElementById('hint').style.display = 'none';
   activeLocId = null;
   editingLoc = null;
   renderMarkers();
@@ -1841,6 +1836,7 @@ function showQrLanding(locId){
   qrLandingCourt = { locId };
   renderQrLandingContent();
   document.getElementById('qr-landing').classList.add('open');
+  document.getElementById('hint').style.display = 'block';
 }
 
 function closeQrLanding(){
