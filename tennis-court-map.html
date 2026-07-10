@@ -67,7 +67,7 @@
 
   /* ---------- Radius control ---------- */
   #radius-bar{display:flex;align-items:center;gap:10px;padding:11px 16px;flex:0 0 auto;}
-  #radius-bar .r-label{font-size:11px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+  #sort-bar .r-label{font-size:11px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
   #radius-bar input[type="range"]{
     width:110px;height:4px;-webkit-appearance:none;appearance:none;
     background:linear-gradient(to right, var(--court) 0%, var(--court) var(--fill,30%), var(--line) var(--fill,30%), var(--line) 100%);
@@ -81,14 +81,25 @@
   #radius-bar input[type="range"]::-moz-range-thumb{
     width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid var(--court);cursor:pointer;
   }
-  #locate-btn{
-    border:none;background:var(--line);color:var(--ink-soft);
-    width:28px;height:28px;border-radius:50%;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;font-size:13px;
-    flex:none;transition:background .15s;
+  /* ---------- Floating map controls (locate + search-this-area) ---------- */
+  #map-controls{
+    position:absolute;right:16px;bottom:96px;z-index:1000;
+    display:flex;flex-direction:column;align-items:flex-end;gap:10px;
   }
-  #locate-btn:hover{background:#d8d2c0;}
+  #locate-btn{
+    border:none;background:#fff;color:var(--ink-soft);
+    width:44px;height:44px;border-radius:50%;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:18px;
+    flex:none;transition:background .15s;box-shadow:var(--card-shadow);
+  }
+  #locate-btn:hover{background:#EFEBDE;}
   #locate-btn.active{background:var(--court);color:#fff;}
+  #search-area-btn{
+    flex:none;width:auto;padding:10px 16px;font-size:13px;border-radius:20px;
+    white-space:nowrap;box-shadow:var(--card-shadow);
+  }
+
+  #sort-bar{padding:11px 16px;}
 
   /* ---------- Admin bar ---------- */
   #admin-bar{display:flex;gap:8px;padding:10px 14px;align-items:center;flex:0 0 auto;}
@@ -382,6 +393,12 @@
         <button class="vd-item active" id="vd-map-btn" onclick="switchView('map')">🗺 Map view</button>
         <button class="vd-item" id="vd-card-btn" onclick="switchView('card')">⊞ Card view</button>
         <div class="vd-divider"></div>
+        <div class="vd-section-label">Sport</div>
+        <div style="padding:2px 10px 8px;display:flex;gap:8px;">
+          <button class="sport-btn active" id="sport-tennis-btn" onclick="toggleSport('tennis')" title="Tennis courts">Tennis <span class="sport-count" id="count-tennis">—</span></button>
+          <button class="sport-btn active" id="sport-pickleball-btn" onclick="toggleSport('pickleball')" title="Pickleball courts">Pickleball <span class="sport-count" id="count-pickleball">—</span></button>
+        </div>
+        <div class="vd-divider"></div>
         <div class="vd-section-label">Location</div>
         <div style="padding:2px 10px 6px;">
           <input id="city-search-input" class="field" type="text" placeholder="Search a city…" style="margin-bottom:0;font-size:12.5px;padding:8px 10px;" oninput="filterCitySuggestions(this.value)" onkeydown="if(event.key==='Enter') trySelectTypedCity()">
@@ -390,30 +407,25 @@
       </div>
     </div>
 
-    <div id="sport-bar" class="glass">
-      <button class="sport-btn active" id="sport-tennis-btn" onclick="toggleSport('tennis')" title="Tennis courts">Tennis <span class="sport-count" id="count-tennis">—</span></button>
-      <button class="sport-btn active" id="sport-pickleball-btn" onclick="toggleSport('pickleball')" title="Pickleball courts">Pickleball <span class="sport-count" id="count-pickleball">—</span></button>
-    </div>
-
-    <div id="radius-bar" class="glass">
-      <!-- Map view: locate + search-this-area -->
-      <div id="radius-map-content" style="display:flex;align-items:center;gap:10px;">
-        <button id="locate-btn" title="Use my location" onclick="useMyLocation()">📍</button>
-        <button id="search-area-btn" class="btn primary" style="display:none;flex:none;width:auto;padding:8px 14px;font-size:12.5px;border-radius:9px;white-space:nowrap;" onclick="searchThisArea()">🔍 Search this area</button>
-      </div>
-      <!-- Card view: sort controls -->
-      <div id="radius-card-content" style="display:none;align-items:center;gap:6px;">
-        <span class="r-label">Sort by</span>
-        <button class="sort-pill active" id="sp-distance" onclick="setSort('distance')">📍 Distance</button>
-        <button class="sort-pill" id="sp-available" onclick="setSort('available')">✓ Availability</button>
-        <button class="sort-pill" id="sp-rating" onclick="setSort('rating')">★ Rating</button>
-      </div>
+    <div id="sort-bar" class="glass" style="display:none;align-items:center;gap:6px;">
+      <span class="r-label">Sort by</span>
+      <button class="sort-pill active" id="sp-distance" onclick="setSort('distance')">📍 Distance</button>
+      <button class="sort-pill" id="sp-available" onclick="setSort('available')">✓ Availability</button>
+      <button class="sort-pill" id="sp-rating" onclick="setSort('rating')">★ Rating</button>
     </div>
 
     <div id="admin-bar" class="glass">
       <button id="admin-btn" onclick="toggleAdmin()">🛠 Admin</button>
       <button id="add-location-btn" onclick="startAddLocation()">+ Add Location</button>
     </div>
+  </div>
+
+  <!-- Floating map controls — these are about the map view itself, so they
+       live near the zoom control rather than competing for space in the
+       page-level toolbar above. -->
+  <div id="map-controls">
+    <button id="search-area-btn" class="btn primary" style="display:none;" onclick="searchThisArea()">🔍 Search this area</button>
+    <button id="locate-btn" title="Use my location" onclick="useMyLocation()">📍</button>
   </div>
 
   <div id="card-view" class="card-view-overlay">
@@ -2135,8 +2147,8 @@ function switchView(v){
 
   const inCard = v === 'card';
 
-  document.getElementById('radius-map-content').style.display = inCard ? 'none' : 'flex';
-  document.getElementById('radius-card-content').style.display = inCard ? 'flex' : 'none';
+  document.getElementById('sort-bar').style.display = inCard ? 'flex' : 'none';
+  document.getElementById('map-controls').style.display = inCard ? 'none' : 'flex';
 
   if (inCard){
     document.getElementById('card-view').classList.add('open');
