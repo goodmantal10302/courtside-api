@@ -83,9 +83,11 @@
   }
   /* ---------- Floating map controls (locate + search-this-area) ---------- */
   #map-controls{
-    position:absolute;right:16px;bottom:96px;z-index:1000;
+    position:absolute;right:16px;bottom:150px;z-index:1000;
     display:flex;flex-direction:column;align-items:flex-end;gap:10px;
+    pointer-events:none;
   }
+  #map-controls > *{ pointer-events:auto; }
   #locate-btn{
     border:none;background:#fff;color:var(--ink-soft);
     width:44px;height:44px;border-radius:50%;cursor:pointer;
@@ -392,6 +394,15 @@
         <div class="vd-section-label">View</div>
         <button class="vd-item active" id="vd-map-btn" onclick="switchView('map')">🗺 Map view</button>
         <button class="vd-item" id="vd-card-btn" onclick="switchView('card')">⊞ Card view</button>
+        <div id="sort-section" style="display:none;">
+          <div class="vd-divider"></div>
+          <div class="vd-section-label">Sort by</div>
+          <div style="padding:2px 10px 8px;display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="sort-pill active" id="sp-distance" onclick="setSort('distance')">📍 Distance</button>
+            <button class="sort-pill" id="sp-available" onclick="setSort('available')">✓ Availability</button>
+            <button class="sort-pill" id="sp-rating" onclick="setSort('rating')">★ Rating</button>
+          </div>
+        </div>
         <div class="vd-divider"></div>
         <div class="vd-section-label">Sport</div>
         <div style="padding:2px 10px 8px;display:flex;gap:8px;">
@@ -405,13 +416,6 @@
           <div id="city-suggestions"></div>
         </div>
       </div>
-    </div>
-
-    <div id="sort-bar" class="glass" style="display:none;align-items:center;gap:6px;">
-      <span class="r-label">Sort by</span>
-      <button class="sort-pill active" id="sp-distance" onclick="setSort('distance')">📍 Distance</button>
-      <button class="sort-pill" id="sp-available" onclick="setSort('available')">✓ Availability</button>
-      <button class="sort-pill" id="sp-rating" onclick="setSort('rating')">★ Rating</button>
     </div>
 
     <div id="admin-bar" class="glass">
@@ -2147,7 +2151,9 @@ function switchView(v){
 
   const inCard = v === 'card';
 
-  document.getElementById('sort-bar').style.display = inCard ? 'flex' : 'none';
+  // Sort pills (inside the dropdown) only make sense in card view;
+  // locate/search-this-area only make sense while looking at the map.
+  document.getElementById('sort-section').style.display = inCard ? 'block' : 'none';
   document.getElementById('map-controls').style.display = inCard ? 'none' : 'flex';
 
   if (inCard){
