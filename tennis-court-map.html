@@ -1920,7 +1920,6 @@ setInterval(tick, 1000);
 function updateRadiusUI(){
   radiusCircle.setLatLng([ORIGIN.lat, ORIGIN.lng]);
   radiusCircle.setRadius(radiusMiles * 1609.34);
-  youMarker.setLatLng([ORIGIN.lat, ORIGIN.lng]);
 }
 
 function computeVisibleRadiusMiles(){
@@ -1961,20 +1960,20 @@ function searchThisArea(){
 
 let watchId = null; // non-null once live tracking is actually running
 
+let myRealLocation = null; // your actual GPS position — independent of wherever you've searched
+
 function beginWatchingLocation(onFirstFix, onError){
   const btn = document.getElementById('locate-btn');
   let settled = false;
 
   watchId = navigator.geolocation.watchPosition(
     (pos)=>{
-      ORIGIN = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      myRealLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      youMarker.setLatLng([myRealLocation.lat, myRealLocation.lng]);
       btn.classList.add('active');
       if (!settled){
         settled = true;
         onFirstFix();
-      } else {
-        updateRadiusUI();
-        refreshAll();
       }
     },
     ()=>{
@@ -1990,14 +1989,18 @@ function beginWatchingLocation(onFirstFix, onError){
 }
 
 function useMyLocation(){
-  if (watchId !== null){
+  if (watchId !== null && myRealLocation){
+    ORIGIN = { lat: myRealLocation.lat, lng: myRealLocation.lng };
     map.panTo([ORIGIN.lat, ORIGIN.lng]);
+    updateRadiusUI();
+    loadLocations();
     return;
   }
   if (!navigator.geolocation){ showToast('Geolocation is not available in this browser.'); return; }
 
   beginWatchingLocation(
     ()=>{
+      ORIGIN = { lat: myRealLocation.lat, lng: myRealLocation.lng };
       map.panTo([ORIGIN.lat, ORIGIN.lng]);
       loadLocations();
     },
@@ -2023,6 +2026,7 @@ function initializeApp(){
   beginWatchingLocation(
     ()=>{
       usedFallback = true;
+      ORIGIN = { lat: myRealLocation.lat, lng: myRealLocation.lng };
       map.setView([ORIGIN.lat, ORIGIN.lng], 13.2);
       loadLocations();
       loadKnownCities();
