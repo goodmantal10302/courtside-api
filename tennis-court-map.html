@@ -80,7 +80,6 @@
   #radius-bar input[type="range"]::-moz-range-thumb{
     width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid var(--court);cursor:pointer;
   }
-  #radius-value{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:12px;color:var(--court-dark);min-width:46px;}
   #locate-btn{
     border:none;background:var(--line);color:var(--ink-soft);
     width:28px;height:28px;border-radius:50%;cursor:pointer;
@@ -396,12 +395,10 @@
     </div>
 
     <div id="radius-bar" class="glass">
-      <!-- Map view: distance slider -->
+      <!-- Map view: locate + search-this-area -->
       <div id="radius-map-content" style="display:flex;align-items:center;gap:10px;">
         <button id="locate-btn" title="Use my location" onclick="useMyLocation()">📍</button>
-        <span class="r-label">Within</span>
-        <input type="range" id="radius-slider" min="0.5" max="10" step="0.5" value="3">
-        <span id="radius-value">3.0 mi</span>
+        <button id="search-area-btn" class="btn primary" style="display:none;flex:none;width:auto;padding:8px 14px;font-size:12.5px;border-radius:9px;white-space:nowrap;" onclick="searchThisArea()">🔍 Search this area</button>
       </div>
       <!-- Card view: sort controls -->
       <div id="radius-card-content" style="display:none;align-items:center;gap:6px;">
@@ -580,6 +577,9 @@ async function loadLocations(){
     renderMarkers();
     updateSportCounts();
     updateCurrentCityLabel();
+    lastSearchOrigin = { lat: ORIGIN.lat, lng: ORIGIN.lng };
+    lastSearchRadius = radiusMiles;
+    hideSearchAreaButton();
     await restoreMyActivity(); // ← reattach any session/queue this device already holds
     handleDeepLink(); // ← add this line
   } catch(err) {
@@ -651,6 +651,10 @@ L.control.zoom({ position:'bottomright' }).addTo(map);
 
 let ORIGIN = { lat: 43.8635, lng: -79.4250 };
 let radiusMiles = 3;
+// Where/how wide the most recent actual search was — used to decide when
+// you've panned/zoomed far enough away to need a new search.
+let lastSearchOrigin = { lat: ORIGIN.lat, lng: ORIGIN.lng };
+let lastSearchRadius = radiusMiles;
 
 
 
@@ -1913,31 +1917,47 @@ function tick(){
 }
 setInterval(tick, 1000);
 
-// ---------------------------------------------------------------
-// Radius slider
-// ---------------------------------------------------------------
-const slider = document.getElementById('radius-slider');
-const radiusValueLabel = document.getElementById('radius-value');
 function updateRadiusUI(){
-  const pct = ((radiusMiles - slider.min) / (slider.max - slider.min)) * 100;
-  slider.style.setProperty('--fill', pct + '%');
-  radiusValueLabel.textContent = radiusMiles.toFixed(1) + ' mi';
   radiusCircle.setLatLng([ORIGIN.lat, ORIGIN.lng]);
   radiusCircle.setRadius(radiusMiles * 1609.34);
   youMarker.setLatLng([ORIGIN.lat, ORIGIN.lng]);
 }
-slider.addEventListener('input', (e)=>{
-  radiusMiles = parseFloat(e.target.value);
+
+function computeVisibleRadiusMiles(){
+  const bounds = map.getBounds();
+  const center = map.getCenter();
+  const ne = bounds.getNorthEast();
+  return distanceMiles(center.lat, center.lng, ne.lat, ne.lng);
+}
+
+function showSearchAreaButton(){ document.getElementById('search-area-btn').style.display = 'inline-block'; }
+function hideSearchAreaButton(){ document.getElementById('search-area-btn').style.display = 'none'; }
+
+function maybeShowSearchAreaButton(){
+  const center = map.getCenter();
+  const movedMiles = distanceMiles(center.lat, center.lng, lastSearchOrigin.lat, lastSearchOrigin.lng);
+  const visibleNow = computeVisibleRadiusMiles();
+  const movedFar = movedMiles > lastSearchRadius * 0.4;
+  const zoomedOutPastLoaded = visibleNow > lastSearchRadius * 1.15;
+  if (movedFar || zoomedOutPastLoaded){
+    showSearchAreaButton();
+  } else {
+    hideSearchAreaButton();
+  }
+}
+map.on('moveend zoomend', maybeShowSearchAreaButton);
+
+function searchThisArea(){
+  const center = map.getCenter();
+  ORIGIN = { lat: center.lat, lng: center.lng };
+  radiusMiles = Math.min(25, Math.max(0.5, computeVisibleRadiusMiles()));
   updateRadiusUI();
   if (activeLocId){
     const loc = LOCATIONS.find(l=>l.id===activeLocId);
     if (loc && !isVisible(loc)) closePanel();
   }
-  refreshAll();
-});
-slider.addEventListener('change', ()=>{
   loadLocations();
-});
+}
 
 let watchId = null; // non-null once live tracking is actually running
 
@@ -2222,10 +2242,13 @@ const deepLinkParams = new URLSearchParams(location.search);
 const deepLinkLoc = deepLinkParams.get('loc');
 const deepLinkCourt = deepLinkParams.get('court');
 
+let deepLinkHandled = false;
 function handleDeepLink(){
-  if (!deepLinkLoc) return;
+  if (deepLinkHandled || !deepLinkLoc) return;
   const loc = LOCATIONS.find(l=>l.id===deepLinkLoc);
   if (!loc) return;
+  deepLinkHandled = true;
+  // QR codes link to location — open the QR landing page for the whole location
   showQrLanding(deepLinkLoc);
 }
 
