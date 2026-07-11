@@ -2147,7 +2147,7 @@ function selectCity(name){
 
   ORIGIN = { lat: city.lat, lng: city.lng };
   map.once('moveend', loadLocations);
-  map.flyTo([city.lat, city.lng], 13, { duration: 0.9 });
+  map.flyTo([city.lat, city.lng], 12, { duration: 0.9 });
 }
 
 function switchView(v){
