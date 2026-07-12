@@ -1703,12 +1703,31 @@ function courtRowHtml(loc, court, showActions){
   </div>`;
 }
 
+function estimateWait(loc){
+  const available = loc.courts.filter(c=>c.status==='available').length;
+  if (available > 0) return null;
+
+  const remainingTimes = loc.courts
+    .filter(c=>c.status==='inuse' && c.session && !c.session.expired)
+    .map(c=>c.session.endsAt - Date.now())
+    .filter(ms=>ms>0)
+    .sort((a,b)=>a-b);
+  if (!remainingTimes.length) return null;
+
+  const aheadInQueue = loc.queue.length;
+  if (aheadInQueue >= remainingTimes.length) return '1+ hour wait';
+
+  const mins = Math.ceil(remainingTimes[aheadInQueue] / 60000);
+  return mins >= 60 ? '1+ hour wait' : `~${mins} min wait`;
+}
+
 function queueSectionHtml(loc, showActions){
   const s = locStats(loc);
   const inQueue = myActiveQueue && myActiveQueue.locId === loc.id;
   const queuedElsewhere = myActiveQueue && myActiveQueue.locId !== loc.id;
   const verifiedHere = isVerifiedAtLocation(loc.id);
   const canStart = !!showActions;
+  const waitEstimate = !showActions ? estimateWait(loc) : null;
 
   let action = '';
   if (inQueue){
@@ -1735,6 +1754,7 @@ function queueSectionHtml(loc, showActions){
         ? `<div class="card-waiting-tag">⏳ ${loc.queue.length} waiting</div>`
         : `<div class="card-waiting-tag none">No one waiting</div>`}
     </div>
+    ${waitEstimate ? `<div class="queue-text">⏱ Est. ${waitEstimate}</div>` : ''}
     ${avatars}
     ${action ? `<div class="ct-actions" style="margin-top:10px;">${action}</div>` : ''}
   </div>`;
@@ -1802,6 +1822,12 @@ function renderPanel(){
   const closedBanner = s.closed > 0
     ? `<div class="closed-banner">⚠ ${s.closed} court${s.closed>1?'s':''} closed for maintenance</div>`
     : '';
+  const weatherBanner = (loc.weather && (loc.weather.status === 'wet' || loc.weather.status === 'raining'))
+    ? `<div class="closed-banner">🌧 ${loc.weather.message} <span style="opacity:.75;">(estimate)</span></div>`
+    : '';
+  const forecastBanner = (loc.weather && loc.weather.upcomingRain)
+    ? `<div class="closed-banner">☂ ${loc.weather.upcomingRain.message} <span style="opacity:.75;">(forecast)</span></div>`
+    : '';
 
   const html = `
     <div id="panel-head">
@@ -1815,6 +1841,8 @@ function renderPanel(){
     </div>
     ${amenitiesHtml(loc)}
     ${closedBanner}
+    ${weatherBanner}
+    ${forecastBanner}
     <div id="panel-summary">
       <div class="hours-row">🕒 ${formatHours(loc.hours)}</div>
     </div>
@@ -1836,6 +1864,38 @@ function openPanel(locId){
   if (loc) map.panTo([loc.lat, loc.lng], { animate:true });
   renderMarkers();
   if (currentView === 'card') renderCardView();
+  loadUsageForLocation(locId); // fetch the real busyness chart data for this specific location
+  loadWeatherForLocation(locId); // fetch the estimated dry-time reading for this specific location
+}
+
+async function loadWeatherForLocation(locId){
+  try {
+    const res = await fetch(`${API_BASE}/v1/locations/${locId}/weather`);
+    if (!res.ok) return;
+    const weather = await res.json();
+    const loc = LOCATIONS.find(l=>l.id===locId);
+    if (loc){
+      loc.weather = weather;
+      if (activeLocId === locId) renderPanel();
+    }
+  } catch(err) {
+    console.error('loadWeatherForLocation error:', err);
+  }
+}
+
+async function loadUsageForLocation(locId){
+  try {
+    const res = await fetch(`${API_BASE}/v1/locations/${locId}/usage`);
+    if (!res.ok) return;
+    const usage = await res.json();
+    const loc = LOCATIONS.find(l=>l.id===locId);
+    if (loc){
+      loc.usage = usage;
+      if (activeLocId === locId) renderPanel();
+    }
+  } catch(err) {
+    console.error('loadUsageForLocation error:', err);
+  }
 }
 function closePanel(){
   document.getElementById('panel').classList.remove('open');
