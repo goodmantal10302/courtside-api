@@ -658,7 +658,8 @@ const TYPE_LABELS = {
   school: "University / School",
 };
 const TYPE_COLORS = { public:'#1F6E63', school:'#2F6FD8' };
-const SPORT_ICONS = { tennis:'🎾', pickleball:'🏓' };
+const PICKLEBALL_ICON_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" style="vertical-align:-2px;" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="2" width="12" height="14" rx="5" fill="#4FA3C7"/><rect x="10" y="15" width="4" height="7" rx="2" fill="#8a5a2b"/><circle cx="9" cy="6" r="0.8" fill="#fff"/><circle cx="15" cy="6" r="0.8" fill="#fff"/><circle cx="9" cy="10" r="0.8" fill="#fff"/><circle cx="15" cy="10" r="0.8" fill="#fff"/><circle cx="12" cy="8" r="0.8" fill="#fff"/></svg>`;
+const SPORT_ICONS = { tennis:'🎾', pickleball: PICKLEBALL_ICON_SVG };
 
 
 // ---------------------------------------------------------------
@@ -1324,7 +1325,7 @@ function openNewLocationForm(lat, lng){
       <input id="new-name" class="field" type="text" placeholder="Location name">
       <select id="new-sport" class="field">
         <option value="tennis">🎾 Tennis</option>
-        <option value="pickleball">🏓 Pickleball</option>
+        <option value="pickleball">Pickleball</option>
       </select>
       <select id="new-type" class="field">
         ${Object.keys(TYPE_LABELS).map(t=>`<option value="${t}">${TYPE_LABELS[t]}</option>`).join('')}
@@ -1767,7 +1768,7 @@ function editFormHtml(loc){
     <input id="edit-name" class="field" type="text" value="${loc.name.replace(/"/g,'&quot;')}">
     <select id="edit-sport" class="field">
       <option value="tennis" ${loc.sport==='tennis'?'selected':''}>🎾 Tennis</option>
-      <option value="pickleball" ${loc.sport==='pickleball'?'selected':''}>🏓 Pickleball</option>
+      <option value="pickleball" ${loc.sport==='pickleball'?'selected':''}>Pickleball</option>
     </select>
     <select id="edit-type" class="field">
       ${Object.keys(TYPE_LABELS).map(t=>`<option value="${t}" ${t===loc.type?'selected':''}>${TYPE_LABELS[t]}</option>`).join('')}
