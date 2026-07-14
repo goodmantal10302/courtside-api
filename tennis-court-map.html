@@ -37,7 +37,7 @@
     pointer-events:none;
   }
   @media (max-width: 600px){
-    #topbar{ top:32px; }
+    #topbar{ top:32px; left:8px; }
   }
   .glass{
     background:rgba(246,243,234,0.92);
@@ -2204,7 +2204,7 @@ function filterCitySuggestions(query){
     return;
   }
   box.innerHTML = matches.map(c =>
-    `<button class="city-suggestion" onclick="selectCity('${c.name.replace(/'/g,"\\'")}')"><span class="cs-pin">📍</span><span class="cs-name">${c.name}</span><span class="cs-region">${c.count} court${c.count>1?'s':''}</span></button>`
+    `<button class="city-suggestion" onclick="selectCity('${c.name.replace(/'/g,"\\'")}')"><span class="cs-pin">📍</span><span class="cs-name">${c.name}</span><span class="cs-region">${c.count} location${c.count>1?'s':''}</span></button>`
   ).join('');
 }
 
