@@ -49,9 +49,8 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'court_id, location_id and player_name are required' });
   }
 
-  if (!partners || partners.length === 0) {
-    return res.status(400).json({ error: 'At least one partner name is required' });
-  }
+  const safePartners = Array.isArray(partners) ? partners : [];
+  
 
   try {
    // Check no active session already exists for this court
@@ -93,7 +92,7 @@ router.post('/', async (req, res) => {
         (court_id, location_id, device_id, player_name, partners_json, duration_mins, ends_at, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
        RETURNING *`,
-      [court_id, location_id, device_id, player_name, JSON.stringify(partners), duration_mins, endsAt]
+      [court_id, location_id, device_id, player_name, JSON.stringify(safePartners), duration_mins, endsAt]
     );
 
     const session = sessionResult.rows[0];

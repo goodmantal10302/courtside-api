@@ -627,7 +627,7 @@ async function restoreMyActivity(){
           court.status = 'inuse';
           court.session = {
             id: session.id,
-            partners: ['You', ...(session.partners_json || [])],
+            partners: [session.player_name, ...(session.partners_json || [])],
             endsAt: new Date(session.ends_at).getTime(),
             durationMin: session.duration_mins,
             expired: new Date(session.ends_at).getTime() <= Date.now()
@@ -895,8 +895,11 @@ function clockIcon(color){
 // ---------------------------------------------------------------
 function ensureDraft(locId, courtId){
   const key = `${locId}:${courtId}`;
-  if (!drafts[key]) drafts[key] = { open:false, duration:60, partners:[''] };
+  if (!drafts[key]) drafts[key] = { open:false, duration:60, yourName:'', partners:[''] };
   return drafts[key];
+}
+function updateDraftYourName(locId, courtId, value){
+  ensureDraft(locId, courtId).yourName = value;
 }
 function toggleStartForm(locId, courtId){
   const d = ensureDraft(locId, courtId);
@@ -922,10 +925,11 @@ function updateDraftPartner(locId, courtId, idx, value){
 }
 async function confirmStart(locId, courtId){
   const key = `${locId}:${courtId}`;
-  const d = drafts[key] || { duration:60, partners:[''] };
+  const d = drafts[key] || { duration:60, yourName:'', partners:[''] };
+  const yourName = (d.yourName || '').trim();
   const names = d.partners.map(p=>p.trim()).filter(Boolean);
-  if (names.length === 0){
-    showToast("Add at least one playing partner before starting.");
+  if (!yourName){
+    showToast("Enter your name before starting.");
     return;
   }
 
@@ -951,7 +955,7 @@ async function confirmStart(locId, courtId){
         court_id: courtId,
         location_id: locId,
         duration_mins: d.duration,
-        player_name: 'You',
+        player_name: yourName,
         partners: names,
         device_id: DEVICE_ID
       })
@@ -969,7 +973,7 @@ async function confirmStart(locId, courtId){
     court.status = 'inuse';
     court.session = {
       id: session.session_id,
-      partners: ['You', ...names],
+      partners: [yourName, ...names],
       endsAt: new Date(session.ends_at).getTime(),
       durationMin: session.duration_mins,
       expired: false
@@ -1628,9 +1632,14 @@ function startFormHtml(loc, court, draft){
       ${draft.partners.length>1 ? `<button class="x-btn" onclick="removeDraftPartner('${loc.id}','${court.id}',${idx})">✕</button>` : ''}
     </div>`).join('');
   return `<div class="start-form">
+    <div class="sf-label">Your name <span class="sf-optional">— required</span></div>
+    <div class="partner-row">
+      <input type="text" placeholder="Your name" value="${(draft.yourName||'').replace(/"/g,'&quot;')}"
+        oninput="updateDraftYourName('${loc.id}','${court.id}',this.value)">
+    </div>
     <div class="sf-label">How long? <span class="sf-optional">(max 1.5 hr)</span></div>
     <div class="dur-group">${durBtns}</div>
-    <div class="sf-label">Playing partner(s) <span class="sf-optional">— required</span></div>
+    <div class="sf-label">Playing partner(s) <span class="sf-optional">— optional</span></div>
     ${partnerInputs}
     ${draft.partners.length<3 ? `<button class="add-partner" onclick="addDraftPartner('${loc.id}','${court.id}')">+ Add partner</button>` : ''}
     <div class="ct-actions">
@@ -2269,7 +2278,7 @@ function renderCardView(){
   }
 
   if (!locs.length){
-    document.getElementById('card-view-inner').innerHTML = `<div style="text-align:center;color:var(--ink-soft);padding:60px 20px;font-size:14px;">No locations within your radius. Try sliding the distance filter wider.</div>`;
+    document.getElementById('card-view-inner').innerHTML = `<div style="text-align:center;color:var(--ink-soft);padding:60px 20px;font-size:14px;">No locations in view. Switch to Map view, zoom out, and tap "Search this area."</div>`;
     return;
   }
 
