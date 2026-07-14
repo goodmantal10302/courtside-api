@@ -1342,7 +1342,7 @@ function openNewLocationForm(lat, lng){
       <label class="check-label"><input id="new-lights" type="checkbox"> Lights</label>
       <label class="check-label"><input id="new-parking" type="checkbox"> Parking</label>
       <label class="check-label"><input id="new-restrooms" type="checkbox"> Restrooms</label>
-      <label class="check-label" style="margin-bottom:10px;"><input id="new-water" type="checkbox"> Water fountain</label>
+      <label class="check-label" style="margin-bottom:10px;"><input id="new-water" type="checkbox"> Water Fountain</label>
       <div class="dist-tag">Dropped at ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
       <div class="ct-actions" style="margin-top:10px;">
         <button class="btn primary" onclick="createLocation(${lat},${lng})">Create location</button>
@@ -1381,7 +1381,7 @@ async function createLocation(lat, lng){
       body: JSON.stringify({
         name, sport, type, address, city, lat, lng,
         hours_json: hoursText ? { note: hoursText } : {},
-        surface: 'hard', setting: 'outdoor',
+        surface: 'Hard', setting: 'Outdoor',
         lights, parking, restrooms, water
       })
     });
@@ -1546,7 +1546,7 @@ function amenitiesHtml(loc){
   if (loc.amenities.lights) items.push('☀ Lights');
   if (loc.amenities.parking) items.push('🅿 Parking');
   if (loc.amenities.restrooms) items.push('🚻 Restrooms');
-  if (loc.amenities.water) items.push('💧 Water fountain');
+  if (loc.amenities.water) items.push('💧 Water Fountain');
   if (!items.length) return `<div class="amenities-row"><span class="amenity none">No listed amenities</span></div>`;
   return `<div class="amenities-row">${items.map(i=>`<span class="amenity">${i}</span>`).join('')}</div>`;
 }
@@ -1789,7 +1789,7 @@ function editFormHtml(loc){
     <label class="check-label"><input id="edit-lights" type="checkbox" ${loc.amenities.lights?'checked':''}> Lights</label>
     <label class="check-label"><input id="edit-parking" type="checkbox" ${loc.amenities.parking?'checked':''}> Parking</label>
     <label class="check-label"><input id="edit-restrooms" type="checkbox" ${loc.amenities.restrooms?'checked':''}> Restrooms</label>
-    <label class="check-label" style="margin-bottom:10px;"><input id="edit-water" type="checkbox" ${loc.amenities.water?'checked':''}> Water fountain</label>
+    <label class="check-label" style="margin-bottom:10px;"><input id="edit-water" type="checkbox" ${loc.amenities.water?'checked':''}> Water Fountain</label>
     <div class="ct-actions">
       <button class="btn primary" onclick="saveLocationEdits('${loc.id}')">Save changes</button>
       <button class="btn ghost" onclick="toggleEditLocation('${loc.id}')">Cancel</button>
