@@ -871,6 +871,14 @@ function freeCourt(loc, court){
   }
 }
 
+// Surface/setting are stored lowercase in the database (e.g. "hard",
+// "outdoor") — this just capitalizes them for display, without touching
+// the stored values themselves.
+function capitalize(str){
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 function fmtClock(ms){
   if (ms < 0) ms = 0;
   const totalSec = Math.floor(ms/1000);
@@ -1381,7 +1389,7 @@ async function createLocation(lat, lng){
       body: JSON.stringify({
         name, sport, type, address, city, lat, lng,
         hours_json: hoursText ? { note: hoursText } : {},
-        surface: 'Hard', setting: 'Outdoor',
+        surface: 'hard', setting: 'outdoor',
         lights, parking, restrooms, water
       })
     });
@@ -1846,7 +1854,7 @@ function renderPanel(){
       <h2>${loc.name}</h2>
       ${isAdmin ? `<button class="edit-pencil" onclick="toggleEditLocation('${loc.id}')">✎ Edit</button>` : ''}
       ${starsHtml(loc.rating, loc.reviews)}
-      <div class="addr">${loc.address} · ${loc.setting} · ${loc.surface}</div>
+      <div class="addr">${loc.address} · ${capitalize(loc.setting)} · ${capitalize(loc.surface)}</div>
       <div class="dist-tag">${distanceMiles(ORIGIN.lat,ORIGIN.lng,loc.lat,loc.lng).toFixed(1)} mi from you</div>
     </div>
     ${amenitiesHtml(loc)}
