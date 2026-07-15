@@ -1512,10 +1512,10 @@ function appModalConfirm(){
 function showAboutModal(){
   openAppModal(`
     <button id="panel-close" onclick="closeAppModal()">✕</button>
-    <div class="sf-label">About CourtSide</div>
+    <div class="sf-label" style="font-size:16px;color:var(--ink);>About CourtSide</div>
     <p class="modal-text">CourtSide shows real-time court availability for tennis and pickleball nearby — who's playing, who's waiting, and roughly how long until a court opens up.</p>
     <p class="modal-text" style="margin-top:10px;"><b>Scan the QR code</b> posted at a court to check in — that unlocks "I'm playing" and joining the queue for that location.</p>
-      <button class="btn primary" style="padding:12px 0;font-size:14px;" onclick="closeAppModal()">Got it</button>
+      <button class="btn primary" style="padding:12px 24px;font-size:14px;" onclick="closeAppModal()">Got it</button>
     </div>
   `);
 }
