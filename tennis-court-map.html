@@ -1510,15 +1510,83 @@ function appModalConfirm(){
   if (cb) cb();
 }
 function showAboutModal(){
+  const step1Svg = `<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+    <rect x="10" y="10" width="28" height="28" rx="2" fill="#F6F3EA" stroke="#1B2421" stroke-width="1.4"/>
+    <rect x="13" y="13" width="7" height="7" fill="#1B2421"/>
+    <rect x="28" y="13" width="7" height="7" fill="#1B2421"/>
+    <rect x="13" y="28" width="7" height="7" fill="#1B2421"/>
+    <rect x="23" y="23" width="4" height="4" fill="#1B2421"/>
+    <rect x="30" y="30" width="5" height="5" fill="#1B2421"/>
+    <path d="M4 4 h8 M4 4 v8" stroke="#2E8B57" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M44 4 h-8 M44 4 v8" stroke="#2E8B57" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M4 44 h8 M4 44 v-8" stroke="#2E8B57" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M44 44 h-8 M44 44 v-8" stroke="#2E8B57" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  </svg>`;
   openAppModal(`
     <button id="panel-close" onclick="closeAppModal()">✕</button>
-    <div class="sf-label">About CourtSide</div>
+    <div class="sf-label" style="font-size:16px;text-transform:none;letter-spacing:normal;color:var(--ink);">About CourtSide</div>
     <p class="modal-text">CourtSide shows real-time court availability for tennis and pickleball nearby — who's playing, who's waiting, and roughly how long until a court opens up.</p>
-    <p class="modal-text" style="margin-top:10px;"><b>Scan the QR code</b> posted at a court to check in — that unlocks "I'm playing" and joining the queue for that location.</p>
-      <button class="btn primary" style="padding:12px 24px;font-size:14px;" onclick="closeAppModal()">Got it</button>
+
+    <div style="display:flex;flex-direction:column;gap:18px;margin:16px 0;">
+      <div style="display:flex;gap:12px;align-items:center;">
+        <div style="flex:none;width:48px;display:flex;align-items:center;justify-content:center;">${step1Svg}</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:2px;">1. Scan the QR code</div>
+          <div style="font-size:12px;color:var(--ink-soft);line-height:1.4;">Find the code posted at the court and scan it with your phone's camera.</div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;">2. See the court's status</div>
+        <div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:10px;box-shadow:0 4px 14px -4px rgba(27,36,33,0.15);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-weight:600;font-size:16px;">Court 1</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:5px 12px;border-radius:20px;background:rgba(46,139,87,0.13);color:#2E8B57;"><span style="width:8px;height:8px;border-radius:50%;background:#2E8B57;display:inline-block;"></span>Available</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">Open now</div>
+          <button style="width:100%;padding:13px 0;font-size:14px;font-weight:700;border:none;border-radius:11px;background:#1F6E63;color:#fff;">I'm playing</button>
+        </div>
+        <div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 4px 14px -4px rgba(27,36,33,0.15);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-weight:600;font-size:16px;">Court 2</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:5px 12px;border-radius:20px;background:rgba(192,85,47,0.13);color:#C0552F;">⏱ In use</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;">32:10 remaining</div>
+          <div style="font-size:13px;color:var(--ink-soft);">Playing: Alex, Sam</div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;">3. Play or join the queue</div>
+        <div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 4px 14px -4px rgba(27,36,33,0.15);">
+          <div style="font-weight:600;font-size:16px;margin-bottom:2px;">Court 2</div>
+          <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">Open now</div>
+          <div class="sf-label">Your name <span class="sf-optional">— required</span></div>
+          <div class="partner-row"><input type="text" placeholder="Your name"></div>
+          <div class="sf-label">How long? <span class="sf-optional">(max 1.5 hr)</span></div>
+          <div class="dur-group">
+            <button class="dur-btn">30 min</button>
+            <button class="dur-btn active">1 hr</button>
+            <button class="dur-btn">1.5 hr</button>
+          </div>
+          <div class="sf-label">Playing partner(s) <span class="sf-optional">— optional</span></div>
+          <div class="partner-row"><input type="text" placeholder="Partner 1 name"></div>
+          <button class="add-partner">+ Add partner</button>
+          <div class="ct-actions" style="margin-top:8px;">
+            <button class="btn primary">Start playing</button>
+            <button class="btn ghost">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ct-actions" style="margin-top:6px;">
+      <button class="btn primary" style="padding:12px 20px;font-size:14px;" onclick="closeAppModal()">Got it</button>
     </div>
   `);
+  document.getElementById('app-modal-card').style.width = '340px';
 }
+
 function showPromptModal(title, placeholder, onSubmit){
   modalCallback = onSubmit;
   openAppModal(`
