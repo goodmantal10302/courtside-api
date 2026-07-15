@@ -1542,7 +1542,7 @@ function showAboutModal(){
             <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:5px 12px;border-radius:20px;background:rgba(46,139,87,0.13);color:#2E8B57;"><span style="width:8px;height:8px;border-radius:50%;background:#2E8B57;display:inline-block;"></span>Available</span>
           </div>
           <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">Open now</div>
-          <button style="width:100%;padding:13px 0;font-size:14px;font-weight:700;border:none;border-radius:11px;background:#1F6E63;color:#fff;">I'm playing</button>
+          <button style="width:100%;padding:13px 0;font-size:14px;font-weight:700;border:none;border-radius:11px;background:#6FAF97;color:#fff;pointer-events:none;">I'm playing</button>
         </div>
         <div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 4px 14px -4px rgba(27,36,33,0.15);">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -1550,7 +1550,7 @@ function showAboutModal(){
             <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:5px 12px;border-radius:20px;background:rgba(192,85,47,0.13);color:#C0552F;">⏱ In use</span>
           </div>
           <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;">32:10 remaining</div>
-          <div style="font-size:13px;color:var(--ink-soft);">Playing: Alex, Sam</div>
+          <div style="font-size:13px;color:var(--ink-soft);">Playing: Player 1, Player 2</div>
         </div>
       </div>
 
@@ -1560,19 +1560,19 @@ function showAboutModal(){
           <div style="font-weight:600;font-size:16px;margin-bottom:2px;">Court 2</div>
           <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">Open now</div>
           <div class="sf-label">Your name <span class="sf-optional">— required</span></div>
-          <div class="partner-row"><input type="text" placeholder="Your name"></div>
+          <div class="partner-row"><input type="text" placeholder="Your name" readonly style="pointer-events:none;background:#FAF9F5;"></div>
           <div class="sf-label">How long? <span class="sf-optional">(max 1.5 hr)</span></div>
           <div class="dur-group">
-            <button class="dur-btn">30 min</button>
-            <button class="dur-btn active">1 hr</button>
-            <button class="dur-btn">1.5 hr</button>
+            <button style="flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 0;font-size:12px;font-weight:600;color:var(--ink-soft);pointer-events:none;">30 min</button>
+            <button style="flex:1;border:1px solid #6FAF97;background:#6FAF97;border-radius:8px;padding:7px 0;font-size:12px;font-weight:600;color:#fff;pointer-events:none;">1 hr</button>
+            <button style="flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 0;font-size:12px;font-weight:600;color:var(--ink-soft);pointer-events:none;">1.5 hr</button>
           </div>
           <div class="sf-label">Playing partner(s) <span class="sf-optional">— optional</span></div>
-          <div class="partner-row"><input type="text" placeholder="Partner 1 name"></div>
-          <button class="add-partner">+ Add partner</button>
+          <div class="partner-row"><input type="text" placeholder="Partner 1 name" readonly style="pointer-events:none;background:#FAF9F5;"></div>
+          <div class="add-partner" style="pointer-events:none;">+ Add partner</div>
           <div class="ct-actions" style="margin-top:8px;">
-            <button class="btn primary">Start playing</button>
-            <button class="btn ghost">Cancel</button>
+            <button style="flex:1;border:none;border-radius:9px;padding:8px 0;font-size:12.5px;font-weight:600;background:#6FAF97;color:#fff;pointer-events:none;">Start playing</button>
+            <button style="flex:1;border:none;border-radius:9px;padding:8px 0;font-size:12.5px;font-weight:600;background:#EFEBDE;color:var(--ink);pointer-events:none;">Cancel</button>
           </div>
         </div>
       </div>
