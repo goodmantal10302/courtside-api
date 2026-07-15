@@ -424,7 +424,7 @@
           <div id="city-suggestions"></div>
         </div>
         <div class="vd-divider"></div>
-        <button class="vd-item" onclick="showAboutModal();toggleViewMenu()">ℹ About CourtSide</button>
+        <button class="vd-item" onclick="showAboutModal();toggleViewMenu()">About </button>
       </div>
     </div>
 
@@ -450,7 +450,6 @@
     <div id="panel-scroll"></div>
   </div>
 
-  <div id="hint" class="glass" style="display:none;">Scanning a court's QR code unlocks "I'm playing" and "End early" for that court. One shared queue waits for the next open court at each location, not a specific one. Admins can edit details, add courts, or close one for maintenance.</div>
 </div>
 
 <div id="qr-landing" class="qr-landing">
@@ -1515,10 +1514,7 @@ function showAboutModal(){
     <button id="panel-close" onclick="closeAppModal()">✕</button>
     <div class="sf-label">About CourtSide</div>
     <p class="modal-text">CourtSide shows real-time court availability for tennis and pickleball nearby — who's playing, who's waiting, and roughly how long until a court opens up.</p>
-    <p class="modal-text" style="margin-top:10px;"><b>Scan the QR code</b> posted at a court to check in — that unlocks "I'm playing" and joining the queue for that location. One shared queue covers every court at a location, not a specific one.</p>
-    <p class="modal-text" style="margin-top:10px;"><b>No account needed.</b> There's no login or sign-up — just a random, anonymous ID stored in your browser so the app can tell "you're already playing somewhere" apart from everyone else. No name, email, or phone number is collected.</p>
-    <p class="modal-text" style="margin-top:10px;">Still growing — thanks for trying it out.</p>
-    <div class="ct-actions" style="margin-top:16px;">
+    <p class="modal-text" style="margin-top:10px;"><b>Scan the QR code</b> posted at a court to check in — that unlocks "I'm playing" and joining the queue for that location.</p>
       <button class="btn primary" onclick="closeAppModal()">Got it</button>
     </div>
   `);
@@ -1892,7 +1888,6 @@ function openPanel(locId){
   editingLoc = null;
   renderPanel();
   document.getElementById('panel').classList.add('open');
-  document.getElementById('hint').style.display = 'block';
   const loc = LOCATIONS.find(l=>l.id===locId);
   if (loc) map.panTo([loc.lat, loc.lng], { animate:true });
   renderMarkers();
@@ -1932,7 +1927,6 @@ async function loadUsageForLocation(locId){
 }
 function closePanel(){
   document.getElementById('panel').classList.remove('open');
-  document.getElementById('hint').style.display = 'none';
   activeLocId = null;
   editingLoc = null;
   renderMarkers();
@@ -1948,7 +1942,6 @@ function showQrLanding(locId){
   qrLandingCourt = { locId };
   renderQrLandingContent();
   document.getElementById('qr-landing').classList.add('open');
-  document.getElementById('hint').style.display = 'block';
 }
 
 function closeQrLanding(){
