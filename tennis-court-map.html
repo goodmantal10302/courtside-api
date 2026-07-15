@@ -423,6 +423,8 @@
           <input id="city-search-input" class="field" type="text" placeholder="Search a city…" style="margin-bottom:0;font-size:12.5px;padding:8px 10px;" oninput="filterCitySuggestions(this.value)" onkeydown="if(event.key==='Enter') trySelectTypedCity()">
           <div id="city-suggestions"></div>
         </div>
+        <div class="vd-divider"></div>
+        <button class="vd-item" onclick="showAboutModal();toggleViewMenu()">ℹ About CourtSide</button>
       </div>
     </div>
 
@@ -1507,6 +1509,19 @@ function appModalConfirm(){
   const cb = modalCallback;
   closeAppModal();
   if (cb) cb();
+}
+function showAboutModal(){
+  openAppModal(`
+    <button id="panel-close" onclick="closeAppModal()">✕</button>
+    <div class="sf-label">About CourtSide</div>
+    <p class="modal-text">CourtSide shows real-time court availability for tennis and pickleball nearby — who's playing, who's waiting, and roughly how long until a court opens up.</p>
+    <p class="modal-text" style="margin-top:10px;"><b>Scan the QR code</b> posted at a court to check in — that unlocks "I'm playing" and joining the queue for that location. One shared queue covers every court at a location, not a specific one.</p>
+    <p class="modal-text" style="margin-top:10px;"><b>No account needed.</b> There's no login or sign-up — just a random, anonymous ID stored in your browser so the app can tell "you're already playing somewhere" apart from everyone else. No name, email, or phone number is collected.</p>
+    <p class="modal-text" style="margin-top:10px;">Still growing — thanks for trying it out.</p>
+    <div class="ct-actions" style="margin-top:16px;">
+      <button class="btn primary" onclick="closeAppModal()">Got it</button>
+    </div>
+  `);
 }
 function showPromptModal(title, placeholder, onSubmit){
   modalCallback = onSubmit;
