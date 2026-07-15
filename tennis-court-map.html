@@ -376,7 +376,7 @@
   /* ---------- QR modal ---------- */
   .qr-overlay{position:fixed;inset:0;background:rgba(27,36,33,0.45);z-index:2000;display:none;align-items:center;justify-content:center;}
   .qr-overlay.open{display:flex;}
-  .qr-card{width:300px;padding:22px;border-radius:18px;text-align:center;position:relative;}
+  .qr-card{width:300px;padding:22px;border-radius:18px;text-align:center;position:relative;max-height:85vh;overflow-y:auto;}
   #qr-canvas{display:flex;justify-content:center;margin:12px 0;}
   .qr-url{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);word-break:break-all;background:#EFEBDE;padding:8px;border-radius:8px;}
 </style>
@@ -1510,7 +1510,7 @@ function appModalConfirm(){
   if (cb) cb();
 }
 function showAboutModal(){
-  const step1Svg = `<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  const step1Svg = `<svg width="64" height="64" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
     <rect x="10" y="10" width="28" height="28" rx="2" fill="#F6F3EA" stroke="#1B2421" stroke-width="1.4"/>
     <rect x="13" y="13" width="7" height="7" fill="#1B2421"/>
     <rect x="28" y="13" width="7" height="7" fill="#1B2421"/>
@@ -1528,12 +1528,10 @@ function showAboutModal(){
     <p class="modal-text">CourtSide shows real-time court availability for tennis and pickleball nearby — who's playing, who's waiting, and roughly how long until a court opens up.</p>
 
     <div style="display:flex;flex-direction:column;gap:18px;margin:16px 0;">
-      <div style="display:flex;gap:12px;align-items:center;">
-        <div style="flex:none;width:48px;display:flex;align-items:center;justify-content:center;">${step1Svg}</div>
-        <div>
-          <div style="font-weight:700;font-size:13px;margin-bottom:2px;">1. Scan the QR code</div>
-          <div style="font-size:12px;color:var(--ink-soft);line-height:1.4;">Find the code posted at the court and scan it with your phone's camera.</div>
-        </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;">1. Scan the QR code</div>
+        <div style="display:flex;justify-content:center;margin-bottom:8px;">${step1Svg}</div>
+        <div style="font-size:12px;color:var(--ink-soft);line-height:1.4;">Find the code posted at the court and scan it with your phone's camera.</div>
       </div>
 
       <div>
