@@ -816,6 +816,7 @@ function toggleSport(sport){
   if (activeSports[sport] && !activeSports[otherSport]) return; // keep at least one on
   activeSports[sport] = !activeSports[sport];
   document.getElementById(`sport-${sport}-btn`).classList.toggle('active', activeSports[sport]);
+  localStorage.setItem('courtside_sports', JSON.stringify(activeSports));
   if (activeLocId){
     const loc = LOCATIONS.find(l=>l.id===activeLocId);
     if (loc && !isVisible(loc)) closePanel();
@@ -908,11 +909,12 @@ function clockIcon(color){
 // ---------------------------------------------------------------
 function ensureDraft(locId, courtId){
   const key = `${locId}:${courtId}`;
-  if (!drafts[key]) drafts[key] = { open:false, duration:60, yourName:'', partners:[''] };
+  if (!drafts[key]) drafts[key] = { open:false, duration:60, yourName: localStorage.getItem('courtside_your_name') || '', partners:[''] };
   return drafts[key];
 }
 function updateDraftYourName(locId, courtId, value){
   ensureDraft(locId, courtId).yourName = value;
+  localStorage.setItem('courtside_your_name', value);
 }
 function toggleStartForm(locId, courtId){
   const d = ensureDraft(locId, courtId);
@@ -1452,6 +1454,31 @@ function buildCourtUrl(locId){
   return `${location.origin}${location.pathname}?loc=${locId}`;
 }
 
+async function shareLocation(locId){
+  const loc = LOCATIONS.find(l=>l.id===locId);
+  const url = buildCourtUrl(locId);
+  const shareText = loc ? `Check out ${loc.name} on CourtSide` : 'Check out this court on CourtSide';
+
+  if (navigator.share){
+    try {
+      await navigator.share({ title: loc ? loc.name : 'CourtSide', text: shareText, url });
+    } catch(err) {
+      // Person cancelled the share sheet — nothing to do
+    }
+    return;
+  }
+
+  if (navigator.clipboard){
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Link copied!');
+      return;
+    } catch(err) { /* fall through to the manual-copy message below */ }
+  }
+
+  showToast('Could not share automatically — copy the link from your address bar.');
+}
+
 function showQr(locId){
   qrCurrentUrl = buildCourtUrl(locId);
   document.getElementById('qr-url').textContent = qrCurrentUrl;
@@ -1942,6 +1969,7 @@ function renderPanel(){
       ${starsHtml(loc.rating, loc.reviews)}
       <div class="addr">${loc.address} · ${capitalize(loc.setting)} · ${capitalize(loc.surface)}</div>
       <div class="dist-tag">${distanceMiles(ORIGIN.lat,ORIGIN.lng,loc.lat,loc.lng).toFixed(1)} mi from you</div>
+      <button class="edit-pencil" style="margin-top:4px;margin-left:0;" onclick="shareLocation('${loc.id}')">🔗 Share this spot</button>
     </div>
     ${amenitiesHtml(loc)}
     ${closedBanner}
@@ -2206,7 +2234,21 @@ function initializeApp(){
   setTimeout(fallbackToDefault, 8000);
 }
 
+try {
+  const savedSports = JSON.parse(localStorage.getItem('courtside_sports') || 'null');
+  if (savedSports){
+    activeSports.tennis = !!savedSports.tennis;
+    activeSports.pickleball = !!savedSports.pickleball;
+    document.getElementById('sport-tennis-btn').classList.toggle('active', activeSports.tennis);
+    document.getElementById('sport-pickleball-btn').classList.toggle('active', activeSports.pickleball);
+  }
+} catch(err) { /* ignore malformed saved data */ }
+
 initializeApp();
+
+const savedView = localStorage.getItem('courtside_view');
+if (savedView === 'card') switchView('card');
+
 if (new URLSearchParams(location.search).get('admin') === '1'){
   document.getElementById('admin-btn').style.display = 'inline-block';
 }
@@ -2313,6 +2355,7 @@ function selectCity(name){
 
 function switchView(v){
   currentView = v;
+  localStorage.setItem('courtside_view', v);
   viewMenuOpen = false;
   document.getElementById('view-menu-dropdown').classList.remove('open');
   document.getElementById('vd-map-btn').classList.toggle('active', v==='map');
