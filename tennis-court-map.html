@@ -377,6 +377,10 @@
   .qr-overlay{position:fixed;inset:0;background:rgba(27,36,33,0.45);z-index:2000;display:none;align-items:center;justify-content:center;}
   .qr-overlay.open{display:flex;}
   .qr-card{width:300px;padding:22px;border-radius:18px;text-align:center;position:relative;max-height:85vh;overflow-y:auto;}
+  .qr-card.about-wide{width:340px;}
+  @media (min-width: 900px){
+    .qr-card.about-wide{width:560px;}
+  }
   #qr-canvas{display:flex;justify-content:center;margin:12px 0;}
   .qr-url{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);word-break:break-all;background:#EFEBDE;padding:8px;border-radius:8px;}
 </style>
@@ -1490,6 +1494,7 @@ function openAppModal(html){
 }
 function closeAppModal(){
   document.getElementById('app-modal').classList.remove('open');
+  document.getElementById('app-modal-card').classList.remove('about-wide');
   modalCallback = null;
 }
 function showConfirmModal(message, onYes){
@@ -1586,7 +1591,7 @@ function showAboutModal(){
       <button class="btn primary" style="padding:12px 20px;font-size:14px;" onclick="closeAppModal()">Got it</button>
     </div>
   `);
-  document.getElementById('app-modal-card').style.width = '340px';
+  document.getElementById('app-modal-card').classList.add('about-wide');
 }
 
 function showPromptModal(title, placeholder, onSubmit){
